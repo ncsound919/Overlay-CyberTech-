@@ -69,9 +69,9 @@ class RedTeamExercise:
         """Validate red team credentials and scope."""
         now = time.time()
         token_valid = credentials.token in self._allowed_tokens
-        # Expiry is exclusive: credentials are valid strictly before expires_at.
+        # Expiry is exclusive: credentials are considered expired at expires_at or later.
         is_expired = (
-            credentials.expires_at is not None and credentials.expires_at < now
+            credentials.expires_at is not None and credentials.expires_at <= now
         )
         authenticated = token_valid and not is_expired
 
