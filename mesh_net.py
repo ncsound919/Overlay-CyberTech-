@@ -3,6 +3,28 @@ Global cybersecurity mesh specification with integrated social networking.
 
 Exposes the full mesh architecture as a Python dictionary for downstream
 use without requiring callers to duplicate the schema.
+
+The specification is parsed once into an in-memory cache and all public
+accessors return *deep copies* of that cached structure. This means callers
+are free to mutate the returned dictionaries and lists without affecting the
+underlying cached specification or other consumers.
+
+Usage examples
+--------------
+
+Import the module and call the helper function:
+
+    from mesh_net import get_mesh_net
+
+    spec = get_mesh_net()
+    spec["global_cybersecurity_mesh"]["network_metadata"]["version"] = "1.0.1"
+    # This change is local to `spec` and does not modify the cached schema.
+
+Or use the lazily-exposed module attribute:
+
+    from mesh_net import mesh_net
+
+    spec = mesh_net  # also a deep copy of the cached specification
 """
 
 import json
