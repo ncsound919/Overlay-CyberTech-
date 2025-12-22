@@ -54,9 +54,103 @@ cd Overlay-CyberTech-
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Or install as a package (recommended)
+pip install -e .
 ```
 
+## Quick Start - Unified CLI
+
+The platform provides a unified command-line interface for all security operations:
+
+```bash
+# Check system status
+python main.py status
+
+# Run comprehensive security scan
+python main.py scan
+
+# Run security scan and respond to threats
+python main.py scan --respond --auto-freeze
+
+# Preview system cleanup (dry run)
+python main.py cleanup --dry-run
+
+# Run actual cleanup (requires admin/root privileges)
+python main.py cleanup
+
+# Analyze disk usage
+python main.py disk-usage --path /
+
+# Generate comprehensive security report
+python main.py report --output security-report.json
+
+# Verify system integrity
+python main.py verify
+
+# Get help
+python main.py --help
+```
+
+## Complete Workflow Example
+
+Run the integrated workflow example to see all modules working together:
+
+```bash
+python example_workflow.py
+```
+
+This demonstrates:
+1. System status check
+2. Security scanning
+3. Threat response
+4. System cleanup preview
+5. Disk usage analysis
+6. Integrity verification
+7. Report generation
+
 ## Usage
+
+### Unified Platform API
+
+Use the `OverlayCyberTech` class for integrated security operations:
+
+```python
+from main import OverlayCyberTech
+
+# Initialize the unified platform
+platform = OverlayCyberTech()
+
+# Get system status
+status = platform.get_system_status()
+print(f"Platform: {status['platform']['os']}")
+print(f"Admin: {status['platform']['is_admin']}")
+
+# Run comprehensive security scan
+scan = platform.run_security_scan(detailed=True)
+print(f"Threats: {scan['intrusion_detection']['threats_detected']}")
+print(f"Risk: {scan['intrusion_detection']['risk_level']}")
+
+# Respond to threats
+if scan['intrusion_detection']['intruders_found'] > 0:
+    response = platform.respond_to_threats(auto_freeze=True)
+    print(f"Processed: {response['intruders_processed']}")
+
+# Run system cleanup (dry run)
+cleanup = platform.run_system_cleanup(dry_run=True)
+print(f"Would free: {cleanup['total_bytes_freed_mb']} MB")
+
+# Analyze disk usage
+disk = platform.analyze_disk_usage('/tmp')
+print(f"Used: {disk['percent_used']}%")
+
+# Generate security report
+report = platform.generate_security_report('report.json')
+```
+
+### Individual Module Usage
+
+You can also use individual modules directly:
 
 ### System Scan for Intrusions
 
