@@ -102,6 +102,7 @@ class RedTeamExercise:
             token = self._generated_token
             self._generated_token = None
             return token
+
     def run_assessment(
         self,
         credentials: RedTeamCredential,
