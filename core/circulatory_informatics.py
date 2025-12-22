@@ -1074,14 +1074,32 @@ class RespiratorySystem(BiologicalSystemComponent):
         
         # Check for exfiltration patterns
         if self._detect_exfiltration(event):
-            self._exfiltration_alerts.append({
-                "event_id": event.event_id,
-                "source": source,
-                "timestamp": time.time()
-            })
+            self._record_exfiltration_alert(event_id=event.event_id, source=source)
             event.enrichments["exfiltration_suspected"] = True
         
         return event
+    
+    def _record_exfiltration_alert(self, event_id: str, source: str) -> None:
+        """
+        Record a suspected exfiltration alert and prune old alerts to avoid
+        unbounded growth of the alert history.
+        """
+        now = time.time()
+        # Append the new alert
+        self._exfiltration_alerts.append(
+            {
+                "event_id": event_id,
+                "source": source,
+                "timestamp": now,
+            }
+        )
+        # Prune alerts older than 1 hour (3600 seconds)
+        cutoff = now - 3600
+        self._exfiltration_alerts[:] = [
+            alert
+            for alert in self._exfiltration_alerts
+            if alert.get("timestamp", 0) >= cutoff
+        ]
     
     def _detect_exfiltration(self, event: SecurityEvent) -> bool:
         """Detect potential data exfiltration."""
