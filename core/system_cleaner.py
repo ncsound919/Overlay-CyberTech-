@@ -918,6 +918,7 @@ class RegistryCleaner:
             finally:
                 self._winreg.CloseKey(key)
         except (OSError, PermissionError):
+            # Ignore registry access/permission issues; uninstall scanning is optional
             pass
     
     def _extract_path_from_command(self, command: str) -> Optional[str]:
