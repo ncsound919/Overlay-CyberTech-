@@ -71,7 +71,7 @@ class RedTeamExercise:
         token_valid = credentials.token in self._allowed_tokens
         # Expiry is exclusive: credentials are valid strictly before expires_at.
         is_expired = (
-            credentials.expires_at is not None and credentials.expires_at <= now
+            credentials.expires_at is not None and credentials.expires_at < now
         )
         authenticated = token_valid and not is_expired
 
@@ -132,16 +132,18 @@ class RedTeamExercise:
                 "automated_safety": empty_safety,
             }
 
-        sanitized_failed_logins = max(0, failed_logins or 0)
-        sanitized_time_window = max(
-            1, time_window_minutes if time_window_minutes is not None else 15
-        )
-        sanitized_data_transfer = max(
-            0.0, data_transfer_mb if data_transfer_mb is not None else 0.0
-        )
-        sanitized_new_location = new_location if new_location is not None else False
-        sanitized_destination_external = (
-            destination_external if destination_external is not None else False
+        (
+            sanitized_failed_logins,
+            sanitized_time_window,
+            sanitized_data_transfer,
+            sanitized_new_location,
+            sanitized_destination_external,
+        ) = self._sanitize_safety_inputs(
+            failed_logins,
+            time_window_minutes,
+            data_transfer_mb,
+            new_location,
+            destination_external,
         )
 
         port_set = open_ports or list(self.DEFAULT_PORTS)
@@ -213,3 +215,32 @@ class RedTeamExercise:
             "highest_severity": highest_severity,
             "risk_score": risk_score,
         }
+
+    @staticmethod
+    def _sanitize_safety_inputs(
+        failed_logins: Optional[int],
+        time_window_minutes: Optional[int],
+        data_transfer_mb: Optional[float],
+        new_location: Optional[bool],
+        destination_external: Optional[bool],
+    ) -> tuple[int, int, float, bool, bool]:
+        """Normalize and clamp safety context inputs."""
+        sanitized_failed_logins = max(0, failed_logins or 0)
+        sanitized_time_window = max(
+            1, time_window_minutes if time_window_minutes is not None else 15
+        )
+        sanitized_data_transfer = max(
+            0.0, data_transfer_mb if data_transfer_mb is not None else 0.0
+        )
+        sanitized_new_location = new_location if new_location is not None else False
+        sanitized_destination_external = (
+            destination_external if destination_external is not None else False
+        )
+
+        return (
+            sanitized_failed_logins,
+            sanitized_time_window,
+            sanitized_data_transfer,
+            sanitized_new_location,
+            sanitized_destination_external,
+        )
