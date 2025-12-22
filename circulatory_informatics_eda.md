@@ -41,7 +41,7 @@ These flows are illustrative; in practice, business-specific playbooks are compo
 - **Pattern:** Orchestration workers + API abstraction (SOAR-like).
 - **Unified action abstractions:** `isolate_endpoint`, `disable_account`, `block_ip`, `rotate_secret` → vendor adapters.
 - **Idempotent, audited execution:** Idempotency keys, logs, retries/backoff/circuit breakers.
-- **Safety & approvals:** Human-in-loop for high-impact actions.
+- **Safety & approvals:** Human-in-the-loop for high-impact actions.
 
 ## 6. Lymphatic System: Forensics, Containment & Recovery
 - **Pattern:** Event-driven IR workflows + batch for heavy forensics.
