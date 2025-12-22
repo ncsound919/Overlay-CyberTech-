@@ -22,9 +22,10 @@ This framework enables systemic diagnosis by analyzing interactions between
 security components rather than reviewing isolated alerts.
 """
 
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 import time
 import json
 import hashlib
@@ -174,9 +175,9 @@ class CirculatorySystem(BiologicalSystemComponent):
     
     def __init__(self):
         super().__init__(BiologicalSystem.CIRCULATORY)
-        self._event_queue: List[SecurityEvent] = []
+        self._event_queue: Deque[SecurityEvent] = deque()
         self._subscribers: Dict[BiologicalSystem, BiologicalSystemComponent] = {}
-        self._event_history: List[str] = []  # Event IDs for traceability
+        self._event_history: Deque[str] = deque(maxlen=10000)  # Event IDs for traceability
         self._max_queue_size = 10000
         self._total_events_processed = 0
         self._failed_deliveries = 0
@@ -200,10 +201,7 @@ class CirculatorySystem(BiologicalSystemComponent):
         event.processing_trail.append(f"circulatory:{time.time()}")
         self._event_queue.append(event)
         self._event_history.append(event.event_id)
-        
-        # Keep history bounded
-        if len(self._event_history) > self._max_queue_size:
-            self._event_history = self._event_history[-self._max_queue_size:]
+        # Note: _event_history is a deque with maxlen, so it auto-prunes
         
         return True
     
@@ -237,7 +235,7 @@ class CirculatorySystem(BiologicalSystemComponent):
         """
         processed = 0
         while self._event_queue:
-            event = self._event_queue.pop(0)
+            event = self._event_queue.popleft()  # O(1) with deque
             self.process(event)
             processed += 1
         return processed

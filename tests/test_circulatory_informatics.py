@@ -8,6 +8,7 @@ Tests the biological-to-cybersecurity mapping framework including:
 - Systemic diagnosis
 """
 
+import json
 import time
 import pytest
 from typing import Dict, Any
@@ -574,7 +575,6 @@ class TestDigestiveSystem:
         system = DigestiveSystem()
         
         def json_parser(raw: str) -> Dict[str, Any]:
-            import json
             return json.loads(raw)
         
         system.register_parser("json", json_parser)
