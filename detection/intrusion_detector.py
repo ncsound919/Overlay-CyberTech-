@@ -414,17 +414,19 @@ class IntrusionDetector:
     
     def _is_internal_ip(self, ip: str) -> bool:
         """Check if IP is internal/private."""
+        # Handle the 172.16.0.0/12 range correctly (172.16.x.x - 172.31.x.x)
+        if ip.startswith('172.'):
+            try:
+                second_octet = int(ip.split('.')[1])
+                if 16 <= second_octet <= 31:
+                    return True
+            except (ValueError, IndexError):
+                pass
+        
         return (
             ip.startswith('127.') or
             ip.startswith('10.') or
             ip.startswith('192.168.') or
-            ip.startswith('172.16.') or
-            ip.startswith('172.17.') or
-            ip.startswith('172.18.') or
-            ip.startswith('172.19.') or
-            ip.startswith('172.2') or
-            ip.startswith('172.30.') or
-            ip.startswith('172.31.') or
             ip == '0.0.0.0' or
             ip == '::1'
         )
@@ -920,6 +922,29 @@ class IntruderResponse:
     
     def _block_ip_windows(self, ip: str) -> Dict[str, Any]:
         """Block IP using Windows Firewall."""
+        # Validate IP address format to prevent command injection
+        import re
+        ip_pattern = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
+        if not ip_pattern.match(ip):
+            return {
+                "success": False,
+                "error": "Invalid IP address format"
+            }
+        
+        # Validate each octet is in valid range
+        try:
+            octets = [int(x) for x in ip.split('.')]
+            if not all(0 <= o <= 255 for o in octets):
+                return {
+                    "success": False,
+                    "error": "Invalid IP address range"
+                }
+        except ValueError:
+            return {
+                "success": False,
+                "error": "Invalid IP address format"
+            }
+        
         try:
             # Create firewall rule to block IP
             rule_name = f"Block_{ip.replace('.', '_')}"
@@ -946,6 +971,29 @@ class IntruderResponse:
     
     def _block_ip_linux(self, ip: str) -> Dict[str, Any]:
         """Block IP using iptables."""
+        # Validate IP address format to prevent command injection
+        import re
+        ip_pattern = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
+        if not ip_pattern.match(ip):
+            return {
+                "success": False,
+                "error": "Invalid IP address format"
+            }
+        
+        # Validate each octet is in valid range
+        try:
+            octets = [int(x) for x in ip.split('.')]
+            if not all(0 <= o <= 255 for o in octets):
+                return {
+                    "success": False,
+                    "error": "Invalid IP address range"
+                }
+        except ValueError:
+            return {
+                "success": False,
+                "error": "Invalid IP address format"
+            }
+        
         try:
             result = subprocess.run([
                 'iptables', '-A', 'OUTPUT', '-d', ip, '-j', 'DROP'

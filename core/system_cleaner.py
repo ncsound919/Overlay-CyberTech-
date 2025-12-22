@@ -439,7 +439,13 @@ class SystemCleaner:
         return result
     
     def _clean_windows_recycle_bin(self, result: CleanupResult) -> None:
-        """Empty Windows Recycle Bin."""
+        """
+        Empty Windows Recycle Bin.
+        
+        Note: Uses -Force flag to bypass confirmation as this is an intentional
+        cleanup action. User confirmation is handled at the API level via
+        dry_run mode and CleanupConfig settings.
+        """
         if self.config.dry_run:
             result.items_cleaned.append("Windows Recycle Bin (would empty)")
             return
@@ -447,6 +453,7 @@ class SystemCleaner:
         try:
             import subprocess
             # Use PowerShell to empty recycle bin
+            # -Force bypasses confirmation since cleanup intent is already confirmed
             subprocess.run(
                 ['powershell', '-Command', 
                  'Clear-RecycleBin', '-Force', '-ErrorAction', 'SilentlyContinue'],
@@ -624,15 +631,22 @@ class SystemCleaner:
         Securely delete a file by overwriting with random data.
         
         Uses multiple passes of random data before deletion
-        to prevent forensic recovery.
+        to prevent forensic recovery. Writes in chunks to avoid
+        memory exhaustion for large files.
         """
+        CHUNK_SIZE = 1024 * 1024  # 1MB chunks to avoid memory issues
+        
         try:
             file_size = os.path.getsize(file_path)
             
             with open(file_path, 'r+b') as f:
                 for _ in range(self.config.secure_delete_passes):
                     f.seek(0)
-                    f.write(os.urandom(file_size))
+                    bytes_written = 0
+                    while bytes_written < file_size:
+                        chunk_to_write = min(CHUNK_SIZE, file_size - bytes_written)
+                        f.write(os.urandom(chunk_to_write))
+                        bytes_written += chunk_to_write
                     f.flush()
                     os.fsync(f.fileno())
             
@@ -802,21 +816,21 @@ class RegistryCleaner:
                                 try:
                                     prog_key = self._winreg.OpenKey(key, prog_id)
                                     self._winreg.CloseKey(prog_key)
-                                except WindowsError:
+                                except OSError:
                                     self._issues.append({
                                         "type": "invalid_file_association",
                                         "extension": subkey_name,
                                         "missing_prog_id": prog_id,
                                         "severity": "low"
                                     })
-                            except WindowsError:
+                            except OSError:
                                 pass
                         i += 1
-                    except WindowsError:
+                    except OSError:
                         break
             finally:
                 self._winreg.CloseKey(key)
-        except (WindowsError, PermissionError):
+        except (OSError, PermissionError):
             pass
     
     def _scan_orphaned_startup_entries(self) -> None:
@@ -847,11 +861,11 @@ class RegistryCleaner:
                                     "severity": "medium"
                                 })
                             i += 1
-                        except WindowsError:
+                        except OSError:
                             break
                 finally:
                     self._winreg.CloseKey(key)
-            except (WindowsError, PermissionError):
+            except (OSError, PermissionError):
                 continue
     
     def _scan_invalid_uninstall_entries(self) -> None:
@@ -884,7 +898,7 @@ class RegistryCleaner:
                                     display_name, _ = self._winreg.QueryValueEx(
                                         subkey, "DisplayName"
                                     )
-                                except WindowsError:
+                                except OSError:
                                     pass
                                 
                                 self._issues.append({
@@ -894,16 +908,16 @@ class RegistryCleaner:
                                     "missing_path": install_location,
                                     "severity": "low"
                                 })
-                        except WindowsError:
+                        except OSError:
                             pass
                         
                         self._winreg.CloseKey(subkey)
                         i += 1
-                    except WindowsError:
+                    except OSError:
                         break
             finally:
                 self._winreg.CloseKey(key)
-        except (WindowsError, PermissionError):
+        except (OSError, PermissionError):
             pass
     
     def _extract_path_from_command(self, command: str) -> Optional[str]:
@@ -959,7 +973,7 @@ class RegistryCleaner:
                     # Note: Actual implementation would require admin rights
                     cleaned.append({**issue, "action": "removed"})
                     
-            except (WindowsError, PermissionError) as e:
+            except (OSError, PermissionError) as e:
                 errors.append({**issue, "error": str(e)})
         
         return {
