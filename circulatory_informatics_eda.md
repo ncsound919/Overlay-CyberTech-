@@ -2,6 +2,17 @@
 
 Upgraded, implementation-ready coding outline for the nine “organ” systems, oriented around an event-driven, API-first microservices architecture with a secure data fabric.
 
+### System interaction overview
+
+Although each “organ” system is described separately, they operate as a single organism over the Circulatory event fabric. All systems publish and consume well-typed events on this fabric, forming end-to-end flows across detection, decisioning, enforcement, and recovery.
+
+Typical cross-system event flows include:
+- **Data ingestion → analytics → response:** Digestive (ingest raw telemetry/logs) → Circulatory (normalize and fan-out events) → Nervous (correlation, scoring) → Immune (enrich with threat intel, select playbook) → Skeletal (policy checks/guardrails) → Muscular (execute approved actions) → Lymphatic (forensics & recovery).
+- **Policy-driven enforcement loop:** Skeletal emits `PolicyViolation` on drift/misconfig → Circulatory routes to Nervous and Lymphatic → Nervous assesses risk and may request `ResponseCommand` → Muscular enforces (e.g., `REVOKE_TOKEN`, `ISOLATE_HOST`) → Respiratory updates network/access controls as needed.
+- **Threat intel–driven hardening:** Immune ingests new `ThreatIndicator` → Circulatory distributes to Nervous and Respiratory → Nervous updates detection models/rules; Respiratory updates filtering rules → future matching events trigger faster Muscular/Lymphatic action.
+- **Incident lifecycle:** Nervous opens `IncidentOpened` on high risk → Lymphatic triggers evidence collection and containment (coordinating with Muscular and Respiratory) → Immune records outcome as “learned immunity” and may adjust playbooks → Skeletal/Governance updates policies based on post-incident review.
+
+These flows are illustrative; in practice, business-specific playbooks are composed as sequences of events across the nine systems, with the Circulatory fabric providing observability, routing, and security guarantees.
 ## 1. Circulatory System: Secure Event Fabric (Infrastructure Layer)
 - **Pattern:** EDA with Pub/Sub broker (Kafka, NATS, or RabbitMQ).
 - **Event contracts & schema registry:** Versioned Avro/JSON for `User`, `Asset`, `Session`, `Alert`, `Incident`, `PolicyViolation` enforced via registry.
