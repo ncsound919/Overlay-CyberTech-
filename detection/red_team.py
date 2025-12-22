@@ -88,9 +88,18 @@ class RedTeamExercise:
 
     @property
     def generated_token(self) -> Optional[str]:
-        """Return auto-generated token when no allowlist was provided."""
-        return self._generated_token
+        """
+        Return the auto-generated token when no allowlist was provided.
 
+        This is a one-time retrieval of a sensitive authentication credential.
+        On the first access, the token is returned and then cleared from memory;
+        subsequent accesses will return ``None``. Callers MUST treat the returned
+        value as secret and avoid logging or exposing it to untrusted parties.
+        """
+        token = self._generated_token
+        # Clear the stored token after first retrieval to reduce exposure risk.
+        self._generated_token = None
+        return token
     def run_assessment(
         self,
         credentials: RedTeamCredential,
