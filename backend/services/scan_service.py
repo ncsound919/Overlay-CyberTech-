@@ -94,6 +94,8 @@ class ScanService:
             scan_data["intruders_found"] = 0
             scan_data["risk_level"] = "UNKNOWN"
             scan_data["recommendations"] = []
+            # Remove failed scan from in-memory storage to prevent unbounded growth
+            self._scans.pop(scan_id, None)
         
         return ScanResponse(
             scan_id=scan_data["scan_id"],
