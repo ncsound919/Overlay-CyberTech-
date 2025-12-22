@@ -155,6 +155,8 @@ class RedTeamExercise:
 
         highest_severity = self._highest_severity(vuln_result["vulnerabilities"])
         risk_assessment = intrusion_result.get("risk_assessment", {})
+        threats_detected = intrusion_result.get("threats_detected", 0)
+        overall_risk = risk_assessment.get("overall_risk", "LOW")
         safety_context = {
             "vulnerability_severity": highest_severity,
             "failed_logins": sanitized_failed_logins,
@@ -177,8 +179,8 @@ class RedTeamExercise:
             "success": True,
             "authentication": auth,
             "intrusion_overview": {
-                "threats_detected": intrusion_result["threats_detected"],
-                "risk": intrusion_result["risk_assessment"]["overall_risk"],
+                "threats_detected": threats_detected,
+                "risk": overall_risk,
             },
             "vulnerabilities": vuln_result,
             "automated_safety": self._build_safety(
