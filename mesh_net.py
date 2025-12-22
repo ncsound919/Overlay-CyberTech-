@@ -261,7 +261,7 @@ _MESH_NET_JSON = """{
 
 _mesh_net_cache: Optional[Dict[str, Any]] = None
 
-if TYPE_CHECKING:  # Aid static analysis without altering runtime lazy load
+if TYPE_CHECKING:  # Aid static analysis for mesh_net attribute exposed via __getattr__
     mesh_net: Dict[str, Any]  # noqa: F821
 
 
