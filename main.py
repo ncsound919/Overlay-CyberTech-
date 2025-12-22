@@ -53,6 +53,7 @@ class OverlayCyberTech:
         self.intrusion_detector = IntrusionDetector()
         self.intruder_response = IntruderResponse(self.intrusion_detector)
         self.action_benchmark = ActionBenchmark(self.intrusion_detector)
+        self.vulnerability_scanner = VulnerabilityScanner()
         
         # Initialize response engine
         self.lts_engine = LabeledTransitionSystem()
@@ -69,7 +70,7 @@ class OverlayCyberTech:
         # Red team orchestrator
         self.red_team = RedTeamExercise(
             intrusion_detector=self.intrusion_detector,
-            vulnerability_scanner=VulnerabilityScanner(),
+            vulnerability_scanner=self.vulnerability_scanner,
             policy_engine=self.policy_engine,
         )
         
@@ -118,7 +119,7 @@ class OverlayCyberTech:
         
         # Analyze vulnerabilities
         print("  → Analyzing vulnerabilities...")
-        vuln_scanner = VulnerabilityScanner()
+        vuln_scanner = self.vulnerability_scanner
         vulnerabilities = []
         
         # Get attack statistics

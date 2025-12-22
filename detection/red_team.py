@@ -7,6 +7,7 @@ Provides deterministic, policy-driven red team exercises that:
 - apply automated safety policies to contain findings
 """
 
+import secrets
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
@@ -39,14 +40,20 @@ class RedTeamExercise:
         self._intrusion_detector = intrusion_detector or IntrusionDetector()
         self._vulnerability_scanner = vulnerability_scanner or VulnerabilityScanner()
         self._policy_engine = policy_engine or create_security_policies()
-        self._allowed_tokens: Set[str] = allowed_tokens or {"REDTEAM-DEFAULT"}
+
+        if allowed_tokens:
+            self._allowed_tokens: Set[str] = set(allowed_tokens)
+            self._generated_token: Optional[str] = None
+        else:
+            token = secrets.token_urlsafe(16)
+            self._allowed_tokens = {token}
+            self._generated_token = token
 
     def authenticate(self, credentials: RedTeamCredential) -> Dict[str, Any]:
         """Validate red team credentials and scope."""
         now = time.time()
         token_valid = bool(credentials.token) and (
             credentials.token in self._allowed_tokens
-            or credentials.token.startswith("REDTEAM-")
         )
         not_expired = credentials.expires_at is None or credentials.expires_at > now
         authenticated = token_valid and not_expired
@@ -64,6 +71,11 @@ class RedTeamExercise:
             "authenticated": authenticated,
             "reason": reason,
         }
+
+    @property
+    def generated_token(self) -> Optional[str]:
+        """Return auto-generated token when no allowlist was provided."""
+        return self._generated_token
 
     def run_assessment(
         self,
@@ -97,14 +109,20 @@ class RedTeamExercise:
         )
 
         highest_severity = self._highest_severity(vuln_result["vulnerabilities"])
+        risk_assessment = intrusion_result.get("risk_assessment", {})
+        safety_context = {
+            "vulnerability_severity": highest_severity,
+            "failed_logins": risk_assessment.get("high_threats", 0),
+            "time_window_minutes": 15,
+            "login_risk_score": risk_assessment.get("risk_score", 0),
+            "new_location": False,
+            "threat_type": "red_team",
+            "confidence": min(1.0, vuln_result["risk_score"] / 10),
+            "data_transfer_mb": 0,
+            "destination_external": False,
+        }
         safety_actions, safety_violations = self._policy_engine.evaluate(
-            {
-                "vulnerability_severity": highest_severity,
-                "failed_logins": 0,
-                "time_window_minutes": 60,
-                "login_risk_score": 0,
-                "new_location": False,
-            }
+            safety_context
         )
 
         return {
