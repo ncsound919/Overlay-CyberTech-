@@ -19,7 +19,7 @@ from response.lts_engine import PolicyEngine, create_security_policies
 
 @dataclass
 class RedTeamCredential:
-    """Represents credentials for a red team engagement."""
+    """Represents credentials for a red team engagement (expires_at uses a UNIX timestamp in seconds, UTC)."""
 
     team_id: str
     token: str
@@ -31,7 +31,10 @@ class RedTeamExercise:
     """Coordinates authenticated red team assessments with automated safety."""
 
     DEFAULT_PORTS = (22, 80, 443)
+    # Normalize risk_score (0-10) into a 0-1 confidence value
     CONFIDENCE_DIVISOR = 10.0
+    # Length in bytes used when auto-generating red team tokens
+    TOKEN_BYTES = 32
 
     def __init__(
         self,
@@ -48,7 +51,7 @@ class RedTeamExercise:
             self._allowed_tokens: Set[str] = set(allowed_tokens)
             self._generated_token: Optional[str] = None
         else:
-            token = secrets.token_urlsafe(32)
+            token = secrets.token_urlsafe(self.TOKEN_BYTES)
             self._allowed_tokens = {token}
             self._generated_token = token
 
@@ -58,12 +61,14 @@ class RedTeamExercise:
         token_valid = bool(credentials.token) and (
             credentials.token in self._allowed_tokens
         )
-        not_expired = credentials.expires_at is None or credentials.expires_at > now
-        authenticated = token_valid and not_expired
+        is_expired = (
+            credentials.expires_at is not None and credentials.expires_at <= now
+        )
+        authenticated = token_valid and not is_expired
 
         if not token_valid:
             reason = "Invalid token"
-        elif not not_expired:
+        elif is_expired:
             reason = "Token expired"
         else:
             reason = "Authenticated"
