@@ -1,0 +1,11 @@
+# Cheetah Security OS - Dependencies
+# Core dependencies with minimal footprint for deterministic security
+
+# No LLM/AI dependencies - all logic is deterministic
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Type checking (optional but recommended)
+mypy>=1.0.0
