@@ -1,7 +1,13 @@
 import pytest
+from types import SimpleNamespace
 
 import mesh_net as mn
 from mesh_net import get_mesh_net, mesh_net
+
+
+@pytest.fixture
+def reset_mesh_cache(monkeypatch):
+    monkeypatch.setattr(mn, "_mesh_net_cache", None)
 
 
 def test_mesh_net_basic_structure():
@@ -49,15 +55,14 @@ def test_mesh_net_deep_copy_nested_structures():
     assert "new_type" not in original
 
 
-def test_mesh_net_lazy_load_caches(monkeypatch):
+def test_mesh_net_lazy_load_caches(monkeypatch, reset_mesh_cache):
     calls = []
 
     def fake_loads(data):
         calls.append(data)
         return {"global_cybersecurity_mesh": {"network_metadata": {}}}
 
-    monkeypatch.setattr(mn, "_mesh_net_cache", None)
-    monkeypatch.setattr(mn, "json", type("JSONProxy", (), {"loads": fake_loads}))
+    monkeypatch.setattr(mn, "json", SimpleNamespace(loads=fake_loads))
 
     mn.get_mesh_net()
     mn.get_mesh_net()
