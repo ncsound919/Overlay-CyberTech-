@@ -66,10 +66,10 @@ class OverlayCyberTech:
         # Initialize system cleaner
         self.system_cleaner = None  # Lazy initialization
         
-        # Red team orchestrator
+        # Red team orchestrator (use a separate VulnerabilityScanner to avoid shared mutable state)
         self.red_team = RedTeamExercise(
             intrusion_detector=self.intrusion_detector,
-            vulnerability_scanner=self.vulnerability_scanner,
+            vulnerability_scanner=VulnerabilityScanner(),
             policy_engine=self.policy_engine,
         )
         
