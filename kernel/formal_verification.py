@@ -134,7 +134,7 @@ class FormalVerifier:
             "result": result.value,
             "args_hash": hashlib.sha256(
                 str((args, kwargs)).encode()
-            ).hexdigest()[:16]
+            ).hexdigest()[:32]  # 32 hex chars = 128 bits of collision resistance
         })
         
         return result, output

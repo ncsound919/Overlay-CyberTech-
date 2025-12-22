@@ -189,7 +189,8 @@ class ImmutableAuditLog:
             query += " AND timestamp <= ?"
             params.append(end_time)
         
-        query += f" ORDER BY timestamp DESC LIMIT {limit}"
+        query += " ORDER BY timestamp DESC LIMIT ?"
+        params.append(limit)
         
         rows = self.cursor.execute(query, params).fetchall()
         

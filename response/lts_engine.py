@@ -129,9 +129,13 @@ class LabeledTransitionSystem:
         # Execute transition actions
         for action in transition.actions:
             action(self.context)
+            # Get action name robustly for logging
+            action_name = getattr(action, '__name__', None)
+            if not action_name or action_name == '<lambda>':
+                action_name = getattr(action, 'action_name', None) or f"action_{id(action)}"
             self._action_log.append({
                 "transition": transition.name,
-                "action": action.__name__ if hasattr(action, '__name__') else str(action),
+                "action": action_name,
                 "timestamp": time.time()
             })
         

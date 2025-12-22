@@ -310,16 +310,16 @@ class BloomFilter:
         return max(1, int(k))
     
     def _get_hash_values(self, item: str) -> List[int]:
-        """Generate k hash values for an item."""
+        """Generate k hash values for an item using SHA-256 based double hashing."""
         hashes = []
+        # Use SHA-256 derivatives for both hash functions (security-safe)
+        h1_bytes = hashlib.sha256(item.encode()).digest()
+        h2_bytes = hashlib.sha256(b"secondary_" + item.encode()).digest()
+        h1 = int.from_bytes(h1_bytes[:16], 'big')
+        h2 = int.from_bytes(h2_bytes[:16], 'big')
+        
         for i in range(self._hash_count):
-            # Use double hashing technique
-            h1 = int(
-                hashlib.md5(item.encode()).hexdigest(), 16
-            )
-            h2 = int(
-                hashlib.sha256(item.encode()).hexdigest(), 16
-            )
+            # Double hashing technique with SHA-256 derivatives
             combined = (h1 + i * h2) % self._size
             hashes.append(combined)
         return hashes
