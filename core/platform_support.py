@@ -843,12 +843,13 @@ class NetworkMonitor:
         Convert hex IP to dotted notation.
         
         Linux /proc/net/tcp stores IPs in little-endian hex format.
-        For example, 127.0.0.1 is stored as "0100007F".
-        We process bytes in reverse order: indices [6,4,2,0] -> 7F,00,00,01 -> 127.0.0.1
+        For example, 127.0.0.1 is stored as the little-endian hex string "0100007F".
+        We process byte *pairs* in reverse order: characters [6-7], [4-5], [2-3], [0-1]
+        -> "7F","00","00","01" -> 127.0.0.1.
         """
         try:
             if len(hex_ip) == 8:  # IPv4
-                # Little-endian: process bytes in reverse order
+                # Little-endian: process bytes in reverse order (positions 6-7, 4-5, 2-3, 0-1)
                 return '.'.join(str(int(hex_ip[i:i+2], 16)) for i in range(6, -1, -2))
             return hex_ip  # IPv6 - return as-is for now
         except ValueError:
