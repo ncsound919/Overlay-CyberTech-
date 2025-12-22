@@ -31,3 +31,11 @@ def test_constants_are_synced():
     )
     node_requirements = GLOBAL_CYBERSECURITY_MESH["deployment_specifications"]["node_requirements"]
     assert node_requirements["minimum_hardware"]["cpu"] == "2_cores"
+
+
+def test_getter_returns_deep_copy():
+    mesh = get_global_cybersecurity_mesh()
+    mesh["network_metadata"]["network_name"] = "MutatedMesh"
+
+    assert GLOBAL_CYBERSECURITY_MESH["network_metadata"]["network_name"] == "CyberSecMeshGlobal"
+    assert global_cybersecurity_mesh["network_metadata"]["network_name"] == "CyberSecMeshGlobal"

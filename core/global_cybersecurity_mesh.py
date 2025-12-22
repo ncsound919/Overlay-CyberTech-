@@ -4,6 +4,15 @@ Global Cybersecurity Mesh specification.
 This module exposes the full problem statement as a structured dictionary so it
 can be consumed programmatically. The specification is embedded inline to keep
 the package self contained without additional data files or runtime I/O.
+
+Two public aliases are provided for convenience and backward compatibility:
+
+* ``global_cybersecurity_mesh`` – preferred PEP 8-style name for general use.
+* ``GLOBAL_CYBERSECURITY_MESH`` – constant-style alias for codebases that
+  treat the mesh as an immutable configuration constant.
+
+Both aliases reference identical data and are interchangeable; they differ only
+in naming style.
 """
 
 from copy import deepcopy
@@ -242,8 +251,9 @@ _GLOBAL_CYBERSECURITY_MESH = json.loads(_GLOBAL_CYBERSECURITY_MESH_JSON)
 _GLOBAL_CYBERSECURITY_MESH_INNER = _GLOBAL_CYBERSECURITY_MESH["global_cybersecurity_mesh"]
 # Hardware specifications are intentionally preserved as string values with units
 # to mirror the provided problem statement without altering its semantics.
-global_cybersecurity_mesh = deepcopy(_GLOBAL_CYBERSECURITY_MESH_INNER)
-GLOBAL_CYBERSECURITY_MESH = deepcopy(_GLOBAL_CYBERSECURITY_MESH_INNER)
+_GLOBAL_CYBERSECURITY_MESH_DICT = deepcopy(_GLOBAL_CYBERSECURITY_MESH_INNER)
+global_cybersecurity_mesh = _GLOBAL_CYBERSECURITY_MESH_DICT
+GLOBAL_CYBERSECURITY_MESH = _GLOBAL_CYBERSECURITY_MESH_DICT
 
 
 def get_global_cybersecurity_mesh(include_wrapper: bool = False):
