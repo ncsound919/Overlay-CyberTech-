@@ -26,4 +26,5 @@ def test_wrapper_option_returns_full_structure():
 
 def test_constants_are_synced():
     assert GLOBAL_CYBERSECURITY_MESH == global_cybersecurity_mesh
-    assert GLOBAL_CYBERSECURITY_MESH["deployment_specifications"]["node_requirements"]["minimum_hardware"]["cpu"] == "2_cores"
+    node_requirements = GLOBAL_CYBERSECURITY_MESH["deployment_specifications"]["node_requirements"]
+    assert node_requirements["minimum_hardware"]["cpu"] == "2_cores"
