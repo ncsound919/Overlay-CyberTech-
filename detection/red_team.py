@@ -21,7 +21,7 @@ from response.lts_engine import PolicyEngine, create_security_policies
 class RedTeamCredential:
     """
     Represents credentials for a red team engagement.
-
+    
     Attributes:
         team_id: Identifier for the red team or engagement.
         token: Authentication token used to authorize the red team.
@@ -90,14 +90,12 @@ class RedTeamExercise:
     def generated_token(self) -> Optional[str]:
         """
         Return the auto-generated token when no allowlist was provided.
-
-        This is a one-time retrieval of a sensitive authentication credential.
-        On the first access, the token is returned and then cleared from memory;
-        subsequent accesses will return ``None``. Callers MUST treat the returned
-        value as secret and avoid logging or exposing it to untrusted parties.
+        
+        This is a one-time retrieval of a sensitive credential. The token is
+        cleared from memory after the first access to reduce exposure risk.
+        Callers must treat the returned value as secret and avoid logging it.
         """
         token = self._generated_token
-        # Clear the stored token after first retrieval to reduce exposure risk.
         self._generated_token = None
         return token
     def run_assessment(
@@ -112,7 +110,10 @@ class RedTeamExercise:
         destination_external: bool = False,
     ) -> Dict[str, Any]:
         """
-        Execute a red team assessment with authentication and safety controls.
+        Execute a red team self-assessment with authentication and safety controls.
+        
+        Intrusion detection runs against the current host; vulnerability scanning
+        uses the supplied target characteristics (ports/banners).
         """
         auth = self.authenticate(credentials)
         if not auth["authenticated"]:
@@ -125,6 +126,10 @@ class RedTeamExercise:
                 "automated_safety": empty_safety,
             }
 
+        sanitized_failed_logins = max(0, failed_logins)
+        sanitized_time_window = max(1, time_window_minutes)
+        sanitized_data_transfer = max(0.0, data_transfer_mb)
+
         port_set = open_ports or list(self.DEFAULT_PORTS)
         intrusion_result = self._intrusion_detector.scan_system()
         vuln_result = self._vulnerability_scanner.scan_target(
@@ -136,8 +141,8 @@ class RedTeamExercise:
         risk_assessment = intrusion_result.get("risk_assessment", {})
         safety_context = {
             "vulnerability_severity": highest_severity,
-            "failed_logins": failed_logins,
-            "time_window_minutes": time_window_minutes,
+            "failed_logins": sanitized_failed_logins,
+            "time_window_minutes": sanitized_time_window,
             "login_risk_score": risk_assessment.get("risk_score", 0),
             "new_location": new_location,
             "threat_type": "red_team",
@@ -145,7 +150,7 @@ class RedTeamExercise:
                 1.0,
                 vuln_result["risk_score"] / self.CONFIDENCE_DIVISOR,
             ),
-            "data_transfer_mb": data_transfer_mb,
+            "data_transfer_mb": sanitized_data_transfer,
             "destination_external": destination_external,
         }
         safety_actions, safety_violations = self._policy_engine.evaluate(
