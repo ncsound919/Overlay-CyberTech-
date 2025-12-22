@@ -235,7 +235,7 @@ class SecurityService:
     
     def update_last_scan_timestamp(self) -> None:
         """Update the last scan timestamp to now."""
-        self._last_scan_timestamp = datetime.utcnow().isoformat() + "Z"
+        self._last_scan_timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     
     def reset_alerts(self) -> int:
         """
