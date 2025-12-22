@@ -1,0 +1,1516 @@
+{
+  "cheetah_robust_security_system_architecture": {
+    "version": "1.0",
+    "date": "2025-12-22",
+    "description": "Complete implementation specifications for antivirus integration, agent testing, Discord collaboration, and system orchestration",
+
+    "antivirus_integration_layer": {
+      "multi_engine_scanning": {
+        "primary_engines": {
+          "clamav": {
+            "description": "Open source antivirus with real-time scanning",
+            "deployment": "clamd daemon with freshclam signature updates every 4 hours",
+            "integration": "clamdscan CLI or clamd socket connection",
+            "capabilities": ["Pattern-based detection", "Archive scanning", "Compressed file analysis"],
+            "update_frequency": "4 times per day"
+          },
+          "virustotal_api": {
+            "description": "Aggregate results from 70+ antivirus engines",
+            "rate_limits": "4 requests/minute (free tier), 500 requests/day (premium)",
+            "integration_method": "REST API with file upload",
+            "response_time": "5-30 seconds per file",
+            "use_case": "Secondary verification for unknown threats"
+          },
+          "windows_defender_api": {
+            "description": "Native Windows Defender integration",
+            "access_method": "Windows Security Center API or MpCmdRun.exe CLI",
+            "platforms": ["Windows 10+", "Windows Server 2016+"],
+            "real_time_protection": true,
+            "signature_updates": "Automatic via Windows Update"
+          },
+          "yara_rules": {
+            "description": "Custom pattern matching for malware detection",
+            "rule_sources": [
+              "github.com/Yara-Rules/rules (community)",
+              "github.com/reversinglabs/reversinglabs-yara-rules",
+              "Custom rules for Cheetah threats"
+            ],
+            "custom_rules_count": 500,
+            "update_frequency": "Weekly"
+          }
+        },
+
+        "implementation_pattern": {
+          "async_scanning": {
+            "framework": "Bull/BullMQ queue system",
+            "backing_store": "Redis",
+            "features": [
+              "Non-blocking file scanning",
+              "Concurrent scan workers",
+              "Automatic retry on failure",
+              "Dead letter queue for failed scans"
+            ],
+            "worker_count": "CPU_COUNT - 1"
+          },
+
+          "scan_orchestration": {
+            "language": "TypeScript/JavaScript",
+            "pseudocode": "async function scanFile(filePath) { const results = await Promise.allSettled([scanWithClamAV(filePath), scanWithVirusTotal(filePath), scanWithYara(filePath)]); return aggregateResults(results); }",
+            "error_handling": "Partial failure = proceed with available results, log missing scans",
+            "timeout_per_engine": "ClamAV: 30s, VirusTotal: 60s, YARA: 45s"
+          },
+
+          "confidence_scoring": {
+            "algorithm": "Weighted ensemble",
+            "weights": {
+              "clamav": 0.30,
+              "virustotal_consensus": 0.50,
+              "yara_custom_rules": 0.20
+            },
+            "virustotal_consensus_calculation": "Detected by >= 50% of 70+ engines",
+            "block_threshold": 0.70,
+            "quarantine_threshold": 0.50,
+            "monitor_threshold": 0.30
+          },
+
+          "quarantine_automation": {
+            "storage": "Encrypted directory with AES-256",
+            "metadata_storage": "PostgreSQL with audit trail",
+            "user_notification": "Email + in-app notification",
+            "admin_review": "Quarantine queue in dashboard",
+            "retention_policy": "30 days, then permanent deletion"
+          },
+
+          "false_positive_handling": {
+            "whitelist_mechanism": "SHA-256 hash database",
+            "digital_signatures": "Verify Authenticode signatures on Windows binaries",
+            "user_override": {
+              "requires": "2FA confirmation",
+              "logs": "User ID, timestamp, file hash, reason",
+              "notification": "Security team receives override notification"
+            },
+            "appeal_process": "Users can submit false positive claim with evidence"
+          }
+        },
+
+        "real_time_protection": {
+          "file_system_watcher": {
+            "library": "chokidar (Node.js) or fsnotify (Go)",
+            "watch_paths": ["/tmp", "/uploads", "~/Downloads", "/var/www", "/home/*/.cache"],
+            "events_monitored": ["add", "change", "rename"],
+            "debounce_ms": 500,
+            "ignore_patterns": ["node_modules", ".git", ".cache"]
+          },
+
+          "memory_scanning": {
+            "tools": [
+              "node-memwatch for JavaScript memory analysis",
+              "v8 profiler for heap snapshots",
+              "Custom buffer overflow detection"
+            ],
+            "detection_patterns": [
+              "Suspicious heap allocations >100MB",
+              "Pointer-chasing code patterns",
+              "ROP gadget detection"
+            ]
+          },
+
+          "network_traffic_inspection": {
+            "development_mode": "mitmproxy for HTTPS inspection",
+            "production_mode": "suricata IDS/IPS",
+            "packet_analysis": "pcap library for custom analysis",
+            "ssl_inspection": "With HTTPS decryption and re-encryption",
+            "detection_rules": "Suricata ET/OPEN rules"
+          },
+
+          "behavioral_analysis": {
+            "monitoring_targets": [
+              "Process creation (execSync, spawn events)",
+              "File system operations (fs.watch)",
+              "Network connections (netstat parsing)",
+              "Registry modifications (Windows)",
+              "System calls (strace on Linux)"
+            ],
+            "ml_model": "Isolation Forest on feature vectors",
+            "features_tracked": 50,
+            "alert_condition": ">3 standard deviations from baseline"
+          },
+
+          "heuristic_detection": {
+            "entropy_analysis": "Detect packed/encrypted files, threshold >7.5",
+            "pe_header_anomalies": "Check for code caves, section misalignment, suspicious imports",
+            "api_call_sequences": "Monitor for suspicious sequences (VirtualAlloc → WriteProcessMemory → CreateRemoteThread)",
+            "code_obfuscation": "Detect string encoding, polymorphic patterns, metamorphic behavior"
+          }
+        },
+
+        "update_mechanisms": {
+          "signature_updates": {
+            "clamav": "freshclam daemon runs every 4 hours",
+            "yara_rules": "Hourly sync from GitHub repositories",
+            "virustotal": "Hash database updated via API calls (realtime)",
+            "custom_rules": "Published to rule server, auto-distributed to all scanners"
+          },
+
+          "zero_day_protection": {
+            "behavior_based_blocking": "Block suspicious actions before signature exists",
+            "sandboxed_execution": "Run unknown executables in isolated VM",
+            "rollback_mechanism": "Revert suspicious changes if detected post-execution",
+            "kernel_mode_protection": "Windows Kernel Patch Protection"
+          },
+
+          "threat_intelligence_feeds": {
+            "feeds": [
+              {"name": "AlienVault OTX", "update_frequency": "hourly"},
+              {"name": "Abuse.ch (URLhaus, MalwareBazaar)", "update_frequency": "daily"},
+              {"name": "MISP community instances", "update_frequency": "realtime"},
+              {"name": "Custom Cheetah threat feed", "update_frequency": "realtime"}
+            ],
+            "ioc_types": ["MD5/SHA256", "URLs", "IPs", "Domains", "File hashes"]
+          },
+
+          "automated_response": {
+            "flow": "New IoC detected → Update firewall rules → Update blocklist → Scan historical logs → Notify SOC → Create ticket",
+            "firewall_integration": "iptables (Linux) or Windows Firewall API",
+            "blocklist_distribution": "Central blocklist server with pull/push options",
+            "historical_scan": "Query S3 for previous logs containing IoC"
+          }
+        }
+      },
+
+      "performance_optimization": {
+        "incremental_scanning": {
+          "caching_strategy": "SHA-256 hash-based cache",
+          "cache_store": "Redis for fast access, SQLite for persistence",
+          "cache_invalidation": "7-day TTL, manual invalidation on rule update",
+          "cache_hit_rate_target": ">80% of scans",
+          "fingerprinting": "Content-based fingerprinting ignores timestamp changes"
+        },
+
+        "priority_queues": {
+          "user_facing_uploads": {
+            "priority": "HIGH",
+            "target_latency": "<30 seconds",
+            "queue_name": "priority_scans"
+          },
+          "background_batch": {
+            "priority": "LOW",
+            "target_latency": "<5 minutes",
+            "queue_name": "background_scans"
+          }
+        },
+
+        "resource_throttling": {
+          "concurrent_scans": "CPU_COUNT - 1",
+          "memory_limit_per_scan": "512MB",
+          "timeout_per_scan": "2 minutes",
+          "cpu_soft_limit": "80% utilization before throttle",
+          "disk_space_check": "Alert if <10GB free"
+        },
+
+        "distributed_scanning": {
+          "message_broker": "RabbitMQ or Apache Kafka",
+          "architecture": "Work queue pattern",
+          "scanner_workers": "Horizontal scaling",
+          "kubernetes_hpa": {
+            "metric": "Queue depth",
+            "scale_up_threshold": "Queue length >100",
+            "scale_down_threshold": "Queue length <10",
+            "max_replicas": 10
+          }
+        },
+
+        "scan_result_caching": {
+          "database": "Redis + PostgreSQL",
+          "cache_key": "scan_hash_{file_sha256}",
+          "cache_value": {
+            "clamav_result": "string",
+            "virustotal_result": "object",
+            "yara_result": "array",
+            "confidence_score": "float",
+            "timestamp": "datetime",
+            "scanner_versions": "object"
+          },
+          "ttl": "7 days",
+          "hit_rate_monitoring": "Grafana metric"
+        }
+      }
+    },
+
+    "agent_testing_benchmarking_system": {
+      "testing_infrastructure": {
+        "agent_simulation_framework": {
+          "selenium_grid": {
+            "setup": "Standalone server or hub-node architecture",
+            "browsers": ["Chrome", "Firefox", "Safari", "Edge"],
+            "parallelization": "Run across multiple nodes",
+            "grid_config": "HubHost: 4444, node instances: 8"
+          },
+
+          "playwright_cluster": {
+            "language": "TypeScript/JavaScript",
+            "browsers": ["Chromium", "Firefox", "WebKit"],
+            "features": [
+              "Auto-wait for elements",
+              "Network interception",
+              "Performance metrics",
+              "HAR file recording"
+            ],
+            "parallelism": "Browser pool with task queue"
+          },
+
+          "cypress_e2e": {
+            "setup": "Open, development mode, or headless",
+            "video_recording": "On failure, configurable",
+            "debugging": "Time-travel debugging, replay any command",
+            "screenshots": "Automatic on assertion failure"
+          },
+
+          "puppeteer_scraping": {
+            "use_case": "Dynamic content extraction, SPA testing",
+            "capabilities": ["Network interception", "Cookie/header control", "Performance metrics"],
+            "parallel_instances": "20 concurrent browsers",
+            "memory_management": "Automatic cleanup on error"
+          },
+
+          "custom_agent_bots": {
+            "behavior_patterns": [
+              "Random mouse movements (jitter 5-50px)",
+              "Typing speed variation (40-100 WPM)",
+              "Random thinking delays (500-3000ms)",
+              "Human-like error correction (typo then fix)",
+              "Session variation (different user-agents per run)"
+            ]
+          }
+        },
+
+        "load_testing_tools": {
+          "k6_scripting": {
+            "language": "JavaScript (ES6+)",
+            "execution": "Local or cloud (k6 Cloud)",
+            "scenarios": [
+              {"name": "ramp_up", "vus": "0→1000 over 2min"},
+              {"name": "sustained", "vus": 1000, "duration": "10min"},
+              {"name": "ramp_down", "vus": "1000→0 over 2min"}
+            ],
+            "thresholds": "p95 latency < 200ms, error rate < 0.1%"
+          },
+
+          "artillery_io": {
+            "config": "YAML-based",
+            "protocols": ["HTTP", "WebSocket", "Socket.io"],
+            "phases": [
+              {"duration": 60, "arrivalRate": 10},
+              {"duration": 300, "arrivalRate": 50},
+              {"duration": 60, "arrivalRate": 10}
+            ]
+          },
+
+          "locust_python": {
+            "locustfile": "Define user behavior as Python classes",
+            "distributed": "Master-worker architecture",
+            "ui": "Web-based control and real-time metrics"
+          },
+
+          "gatling_scala": {
+            "simulation": "Scala-based DSL",
+            "report_generation": "Comprehensive HTML reports with graphs",
+            "injection_profile": "Ramp, constant, spike patterns"
+          },
+
+          "wrk_lua": {
+            "performance": "600k+ RPS capability",
+            "metrics": "Latency percentiles (p50, p90, p99, p99.9)",
+            "lua_scripting": "Custom request/response handling"
+          }
+        },
+
+        "benchmarking_metrics": {
+          "performance_kpis": {
+            "response_time": {
+              "p50": "Median response time",
+              "p95": "95th percentile latency",
+              "p99": "99th percentile latency",
+              "p99_9": "99.9th percentile latency",
+              "targets": "p95 < 200ms (API), p99 < 500ms (UI)"
+            },
+            "throughput": {
+              "rps": "Requests per second",
+              "target": "10000 req/s sustained",
+              "connection_limit": "Monitor concurrent connections"
+            },
+            "error_rate": {
+              "4xx_errors": "Client errors percentage",
+              "5xx_errors": "Server errors percentage",
+              "target": "< 0.1% total error rate"
+            },
+            "resource_utilization": {
+              "cpu_percent": "Alert if > 80% for 5 minutes",
+              "memory_mb": "Monitor growth over time",
+              "disk_io": "IOPS and throughput",
+              "network_bandwidth": "Mbps utilization"
+            },
+            "security_scan_overhead": {
+              "latency_added": "Measure with/without scanning",
+              "target": "< 50ms p95 overhead"
+            }
+          },
+
+          "security_metrics": {
+            "vulnerability_detection_rate": {
+              "definition": "% of injected vulnerabilities caught",
+              "target": "> 95%",
+              "injection_types": ["SQL injection", "XSS", "CSRF", "Path traversal", "Command injection"]
+            },
+            "false_positive_rate": {
+              "definition": "% of legitimate files flagged",
+              "target": "< 2%"
+            },
+            "mean_time_to_detect": {
+              "definition": "Average time from threat introduction to detection",
+              "target": "< 30 seconds"
+            },
+            "mean_time_to_respond": {
+              "definition": "Time from detection to mitigation",
+              "target": "< 2 minutes"
+            },
+            "compliance_score": {
+              "frameworks": ["OWASP Top 10", "CIS Benchmarks", "PCI-DSS"],
+              "target": "100% compliance"
+            }
+          },
+
+          "agent_efficiency": {
+            "task_completion_rate": {
+              "definition": "% of assigned tasks successfully completed",
+              "target": "> 98%"
+            },
+            "action_accuracy": {
+              "definition": "% of actions that achieve intended result",
+              "target": "> 99%"
+            },
+            "recovery_time": {
+              "definition": "Time to recover from failures",
+              "target": "< 10 seconds"
+            },
+            "resource_footprint": {
+              "memory_per_agent": "< 100MB RAM",
+              "cpu_per_agent": "< 5% CPU",
+              "network_per_agent": "< 10 Mbps"
+            }
+          }
+        },
+
+        "automated_testing_pipeline": {
+          "test_orchestration": {
+            "ci_cd": ["Jenkins", "GitHub Actions", "GitLab CI"],
+            "parallelization": "Run 10 test suites concurrently",
+            "artifact_collection": "Screenshots, videos, logs, HTML reports",
+            "result_aggregation": "Combine results from all parallel runs"
+          },
+
+          "test_data_management": {
+            "synthetic_data": "Faker.js for realistic test data",
+            "fixtures": "YAML/JSON test fixtures",
+            "database_seeding": "Automated scripts for test DB setup",
+            "pii_anonymization": "Hash or mask sensitive data in logs"
+          },
+
+          "environment_provisioning": {
+            "iac_tool": "Terraform",
+            "local_testing": "Docker Compose",
+            "production_like": "Kubernetes cluster"
+          },
+
+          "result_analysis": {
+            "trend_analysis": {
+              "tracking": "Historical metrics over time",
+              "regression_detection": "Alert on >10% degradation",
+              "baseline_comparison": "Compare to known good state"
+            },
+            "anomaly_detection": {
+              "statistical": "Z-score, IQR methods",
+              "ml_based": "Isolation Forest for outlier detection",
+              "alerts": "Slack/PagerDuty for anomalies"
+            },
+            "regression_detection": {
+              "method": "Binary search commits to find regression source",
+              "threshold": ">10% performance change",
+              "automatic_bisect": "Git bisect in CI/CD pipeline"
+            },
+            "report_generation": {
+              "formats": ["HTML", "PDF", "JSON"],
+              "notifications": ["Slack", "Discord", "Email"],
+              "jira_integration": "Create tickets for failures"
+            }
+          }
+        },
+
+        "benchmark_scenarios": {
+          "normal_operation": {
+            "concurrent_users": 1000,
+            "duration": "1 hour",
+            "description": "Baseline performance under expected load"
+          },
+          "stress_testing": {
+            "concurrent_users": "10000+",
+            "duration": "30 minutes",
+            "goal": "Identify maximum capacity and failure modes"
+          },
+          "spike_testing": {
+            "ramp": "0→5000 users in 30 seconds",
+            "duration": "10 minutes",
+            "goal": "Test auto-scaling responsiveness"
+          },
+          "endurance_testing": {
+            "duration": "24+ hours",
+            "concurrent_users": 2000,
+            "detection": "Memory leaks, connection pool exhaustion"
+          },
+          "chaos_testing": {
+            "injections": [
+              "Network latency (500ms)",
+              "Service crashes (kill pod)",
+              "Disk full scenario",
+              "CPU spike (limit to 1 core)"
+            ]
+          },
+          "security_testing": {
+            "attacks": ["SQL injection", "XSS", "CSRF", "Auth bypass"],
+            "goal": "Verify all blocked with proper logging"
+          }
+        }
+      },
+
+      "agent_types_and_roles": {
+        "security_scanner_agents": {
+          "vulnerability_scanner": {
+            "tools": ["OWASP ZAP automated", "Burp Suite API", "Custom rules"],
+            "scan_frequency": "On every deployment + daily full scans"
+          },
+          "penetration_testing": {
+            "tools": ["Metasploit automation", "Nmap", "Credential stuffing tests"],
+            "frequency": "Weekly scheduled, ad-hoc on demand"
+          },
+          "compliance_auditor": {
+            "checks": ["CIS benchmarks", "GDPR data flow", "PCI-DSS requirements"],
+            "frequency": "Monthly comprehensive, weekly spot-checks"
+          },
+          "code_analyzer": {
+            "tools": ["SonarQube", "Semgrep", "Snyk", "CodeQL"],
+            "triggers": "On every commit + nightly full scan"
+          }
+        },
+
+        "performance_monitor_agents": {
+          "apm_agent": {
+            "platforms": ["Datadog", "New Relic", "Jaeger"],
+            "instrumentation": "Automatic + custom spans",
+            "distributed_tracing": "OpenTelemetry protocol"
+          },
+          "synthetic_monitoring": {
+            "checks": ["API endpoints", "Multi-region", "SSL certificates"],
+            "frequency": "Every 5 minutes"
+          },
+          "rum_agent": {
+            "metrics": ["Core Web Vitals", "Session replay", "User journey"],
+            "collection": "100% of sessions in production"
+          },
+          "log_aggregator": {
+            "stack": "ELK (Elasticsearch, Logstash, Kibana)",
+            "retention": "30 days hot, 1 year warm, 7 years cold"
+          }
+        },
+
+        "functional_test_agents": {
+          "ui_automation": {
+            "patterns": ["Page Object Model"],
+            "visual_testing": ["Percy", "Applitools"],
+            "browser_support": ["Chrome", "Firefox", "Safari"]
+          },
+          "api_testing": {
+            "tools": ["Postman collections", "Pact (contract testing)", "Schemathesis"],
+            "validation": ["Response schema", "Status codes", "Response times"]
+          },
+          "integration_testing": {
+            "scope": ["Service interactions", "Message queues", "Database state"],
+            "tools": ["Testcontainers", "LocalStack"]
+          },
+          "accessibility_testing": {
+            "standards": ["WCAG 2.1 AA"],
+            "tools": ["axe-core", "Pa11y", "Lighthouse"],
+            "frequency": "Every build"
+          }
+        }
+      },
+
+      "benchmark_result_storage": {
+        "time_series_database": {
+          "options": ["InfluxDB", "TimescaleDB", "Prometheus"],
+          "selected": "TimescaleDB (PostgreSQL compatible)"
+        },
+        "schema_design": {
+          "table": "benchmark_results",
+          "measurement": "benchmark_run",
+          "tags": ["test_type", "environment", "version", "branch"],
+          "fields": ["latency_p50", "latency_p95", "latency_p99", "throughput", "error_rate", "cpu_percent", "memory_mb"],
+          "timestamp": "TIMESTAMP WITH TIME ZONE"
+        },
+        "retention_policy": {
+          "raw_data": "30 days",
+          "hourly_aggregates": "1 year",
+          "daily_aggregates": "5 years"
+        },
+        "query_optimization": {
+          "indexes": ["(time, tags)", "(test_type, version, time)"],
+          "continuous_aggregates": "Pre-computed summaries",
+          "caching": "5-minute result cache"
+        },
+        "visualization": {
+          "dashboards": ["Grafana", "Metabase", "Custom React"],
+          "charts": ["Recharts", "D3.js", "Apache ECharts"],
+          "reports": "PDF generation with Puppeteer"
+        }
+      }
+    },
+
+    "discord_collaboration_integration": {
+      "discord_bot_architecture": {
+        "framework": "discord.js v14 with TypeScript",
+        "features": ["Slash commands", "Button interactions", "Select menus", "Thread creation"],
+
+        "authentication": {
+          "oauth2_flow": "User linking to system account",
+          "mapping": "Discord user ID ↔ system user ID",
+          "permissions": "Role-based access control"
+        },
+
+        "bot_capabilities": {
+          "security_alerts": {
+            "trigger": "Real-time malware detection",
+            "notification": "DM to security team + thread in #security",
+            "content": "Threat level, file name, confidence score, action taken"
+          },
+          "scan_requests": {
+            "command": "/scan <file_url>",
+            "process": "Queue scan → notify on completion",
+            "output": "Detailed threat report with PDF export"
+          },
+          "benchmark_results": {
+            "command": "/benchmark <test_name>",
+            "output": "Embedded graphs, CSV export option"
+          },
+          "incident_management": {
+            "command": "/incident create",
+            "actions": "Channel creation, role assignment, escalation"
+          },
+          "approval_workflows": {
+            "trigger": "Quarantine release requests",
+            "approval": "React with ✅/❌",
+            "audit": "Logged for compliance"
+          }
+        },
+
+        "real_time_updates": {
+          "webhooks": {
+            "format": "Discord embeds with color coding",
+            "colors": {"critical": "red", "warning": "yellow", "success": "green"},
+            "batching": "Group messages to avoid spam"
+          },
+          "websocket_bridge": {
+            "direction": "Bidirectional",
+            "discord_to_system": "Commands executed with auth check",
+            "system_to_discord": "Real-time event streaming"
+          },
+          "event_streaming": {
+            "source": "Kafka topics",
+            "consumption": "discord-bot consumer group",
+            "routing": "Topic → Discord channel mapping"
+          },
+          "rate_limit_handling": {
+            "discord_api_limit": "50 requests/sec per bot",
+            "strategy": "Queue with exponential backoff",
+            "batch_messages": "Combine updates when possible"
+          }
+        }
+      },
+
+      "collaboration_features": {
+        "shared_dashboards": {
+          "security_dashboard_channel": {
+            "update_frequency": "Every hour",
+            "content": "Grafana snapshots",
+            "interactions": "Discord buttons for drill-down",
+            "link": "Full dashboard in thread"
+          },
+          "benchmark_leaderboard": {
+            "daily_post": "Top performers, version comparison",
+            "regression_alerts": "@mention responsible teams"
+          },
+          "incident_timeline": {
+            "threaded_conversations": "Status updates in thread",
+            "automatic_updates": "Linked to ticketing system",
+            "resolution_tracking": "Time to resolution"
+          }
+        },
+
+        "code_review_integration": {
+          "github_discord_bridge": {
+            "triggers": ["PR opened", "PR updated", "CI results", "Review requested"],
+            "content": ["PR summary", "Security scan results", "Performance impact"]
+          },
+          "inline_discussions": {
+            "sync": "Discord ↔ GitHub bidirectional",
+            "threading": "Discord thread linked to GH comment",
+            "benefits": "Discuss in preferred channel"
+          },
+          "approval_gates": {
+            "requirement": "Security team Discord approval",
+            "mechanism": "Reaction → GitHub Actions trigger",
+            "enforcement": "Required status check"
+          }
+        },
+
+        "knowledge_base": {
+          "forum_channels": {
+            "topics": ["Vulnerabilities", "Benchmarks", "Incidents", "Best Practices"],
+            "format": "Searchable forum channels"
+          },
+          "search_command": {
+            "usage": "/search <query>",
+            "returns": "Relevant threads with context"
+          },
+          "documentation_sync": {
+            "sources": ["Notion", "Confluence"],
+            "sync_method": "Webhook on update",
+            "versioning": "Link to latest version"
+          }
+        },
+
+        "alert_routing": {
+          "severity_channels": {
+            "critical": "#critical-alerts (P0, page on-call)",
+            "high": "#high-priority (P1, 15min response)",
+            "medium": "#monitoring (P2, 1hr response)",
+            "info": "#info (FYI, no SLA)"
+          },
+          "on_call_rotation": {
+            "integration": "PagerDuty sync",
+            "notification": "@mention current on-call person",
+            "escalation": "Alert if no ack in 15 minutes"
+          },
+          "alert_deduplication": {
+            "window": "5 minutes",
+            "action": "Group into single message with count",
+            "benefit": "Prevent channel spam"
+          },
+          "alert_resolution": {
+            "acknowledge": "React with ✅",
+            "logging": "Records resolver in incident thread",
+            "notification": "Updates ticketing system"
+          }
+        }
+      },
+
+      "discord_bot_commands": {
+        "security_commands": {
+          "/scan": "Queue file scan, return threat level + details",
+          "/quarantine": "List quarantined files, request release",
+          "/threats": "Recent threats, filterable, exportable",
+          "/whitelist": "Add hash to whitelist with justification"
+        },
+        "benchmark_commands": {
+          "/benchmark run": "Trigger suite, select test type",
+          "/benchmark status": "Current progress, ETA",
+          "/benchmark compare": "Compare runs, highlight deltas",
+          "/benchmark history": "Metric over time with graphs"
+        },
+        "incident_commands": {
+          "/incident create": "Create channel, assign severity, notify on-call",
+          "/incident update": "Post status update to timeline",
+          "/incident resolve": "Generate postmortem, schedule retro",
+          "/incident list": "Active incidents, filterable"
+        },
+        "system_commands": {
+          "/status": "System health, service status, load",
+          "/deploy": "Trigger deployment (safeguarded)",
+          "/rollback": "Emergency rollback with confirmation",
+          "/logs": "Fetch logs, filter by service/level"
+        }
+      },
+
+      "discord_security_considerations": {
+        "bot_token_security": {
+          "storage": "Vault / AWS Secrets Manager",
+          "forbidden": "Never in code or environment variables",
+          "rotation": "Every 90 days"
+        },
+        "permission_scoping": {
+          "principle": "Least privilege",
+          "audit": "Review quarterly",
+          "intent": "Only necessary Discord permissions"
+        },
+        "rate_limiting": {
+          "application_level": "Per-user limits",
+          "prevention": "Prevent command abuse",
+          "limits": "Global + per-command throttling"
+        },
+        "input_validation": {
+          "sanitization": "All Discord inputs before processing",
+          "prevention": "Command injection attacks",
+          "validation": "File uploads against size/type"
+        },
+        "audit_logging": {
+          "scope": "Every bot command",
+          "fields": ["User ID", "Timestamp", "Command", "Result"],
+          "retention": "1 year in PostgreSQL"
+        }
+      }
+    },
+
+    "integration_architecture": {
+      "system_communication_flow": {
+        "antivirus_to_discord": {
+          "flow": "Scan complete → Kafka topic → Discord bot consumer → Format embed → Post to channel",
+          "latency": "<5 seconds"
+        },
+        "discord_to_benchmark": {
+          "flow": "User /benchmark run → Bot validates → Queue job → Monitor → Post results",
+          "total_time": "<30 minutes for full test suite"
+        },
+        "benchmark_to_antivirus": {
+          "flow": "Benchmark includes security tests → AV must detect malware samples",
+          "validation": "Detection rates reported in results"
+        },
+        "circular_integration": {
+          "flow": "Discord command → Scan → Results in Discord → User interaction → Follow-up actions",
+          "benefits": "All in one workflow"
+        }
+      },
+
+      "api_gateway_pattern": {
+        "central_api": {
+          "framework": "Express.js or Fastify",
+          "auth": "Consistent JWT + session handling",
+          "documentation": "OpenAPI/Swagger"
+        },
+        "graphql_layer": {
+          "server": "Apollo Server",
+          "schema_sharing": "Discord bot + frontend use same schema",
+          "subscriptions": "Real-time updates via WebSocket"
+        },
+        "webhook_router": {
+          "validation": "HMAC signature verification",
+          "routing": "Event type → handler mapping",
+          "retry_logic": "Exponential backoff for failures"
+        },
+        "event_bus": {
+          "technology": "Redis Pub/Sub or Apache Kafka",
+          "benefit": "Loose coupling, event-driven"
+        }
+      },
+
+      "data_flow_security": {
+        "encryption_in_transit": {
+          "api_calls": "HTTPS (TLS 1.3)",
+          "internal": "mTLS between services",
+          "certificate_pinning": "For critical connections"
+        },
+        "encryption_at_rest": {
+          "database": "PostgreSQL pgcrypto",
+          "storage": "S3 AES-256 encryption",
+          "backups": "Encrypted with key rotation"
+        },
+        "data_minimization": {
+          "discord_messages": "Summaries only, full details via secure links",
+          "sensitive_data": "Auto-expire after 30 days",
+          "pii": "Never logged directly"
+        },
+        "access_control": {
+          "auth": "JWT tokens with scopes",
+          "service_to_service": "mTLS certificates",
+          "audit": "All data access logged"
+        }
+      }
+    },
+
+    "deployment_and_operations": {
+      "containerization": {
+        "docker_images": {
+          "services": [
+            "antivirus-scanner",
+            "benchmark-runner",
+            "discord-bot",
+            "api-gateway",
+            "dashboard"
+          ],
+          "per_service": "Separate image with own build pipeline"
+        },
+        "multi_stage_builds": {
+          "builder": "Includes dev dependencies",
+          "production": "Minimal footprint, security hardened",
+          "scanning": "Trivy vulnerability scan before push"
+        },
+        "image_signing": {
+          "tool": "Cosign",
+          "verification": "Policy enforcement with admission controllers",
+          "purpose": "Supply chain security + image provenance"
+        },
+        "registry_security": {
+          "registry": "Private (Harbor or ECR)",
+          "scanning": "Vulnerability scan on push and pull",
+          "retention": "Keep last 10 images, delete old"
+        }
+      },
+
+      "orchestration": {
+        "kubernetes_namespaces": [
+          "production (strict RBAC, PodSecurityStandards)",
+          "staging (same as prod, no traffic)",
+          "development (relaxed for testing)"
+        ],
+        "network_policies": "Deny all by default, explicit allow rules",
+        "pod_security": "SecurityContext with read-only filesystem",
+        "scaling": {
+          "hpa": "Horizontal Pod Autoscaler",
+          "metric": "CPU + memory + custom metrics",
+          "min_replicas": 2,
+          "max_replicas": 10
+        },
+        "resource_requests": {
+          "cpu": "100m-500m per pod",
+          "memory": "128Mi-512Mi per pod",
+          "limits": "Prevent runaway processes"
+        }
+      }
+    }
+  }
+}
+{
+  "cheetah_deployment_operations_complete": {
+    "version": "1.0",
+    "date": "2025-12-22",
+    "description": "Complete deployment, operations, monitoring, and incident response specifications",
+
+    "kubernetes_orchestration": {
+      "cluster_setup": {
+        "platform": "Amazon EKS or self-managed Kubernetes 1.28+",
+        "node_configuration": {
+          "node_types": [
+            {
+              "name": "compute_optimized",
+              "instance_type": "c6i.2xlarge (8 vCPU, 16 GB RAM)",
+              "count": 3,
+              "purpose": "Antivirus scanning, benchmark runners"
+            },
+            {
+              "name": "memory_optimized",
+              "instance_type": "r6i.2xlarge (8 vCPU, 64 GB RAM)",
+              "count": 2,
+              "purpose": "ML inference, analytics databases"
+            },
+            {
+              "name": "general_purpose",
+              "instance_type": "t3.large (2 vCPU, 8 GB RAM)",
+              "count": 2,
+              "purpose": "API gateway, Discord bot, monitoring"
+            }
+          ]
+        },
+        "networking": {
+          "vpc": "VPC with public + private subnets",
+          "security_groups": "Restrict ingress to ALB + internal services",
+          "nat_gateway": "For egress to external APIs",
+          "service_discovery": "Kubernetes Service + CoreDNS"
+        }
+      },
+
+      "namespace_configuration": {
+        "production": {
+          "rbac": "Strict role-based access control",
+          "pod_security_policy": "Restricted (read-only filesystem, no root)",
+          "network_policy": "Deny all ingress, explicit allow",
+          "resource_quotas": "CPU: 50 cores, Memory: 100 GB",
+          "tenant_isolation": "Separate namespaces per customer (enterprise)"
+        },
+        "staging": {
+          "configuration": "Identical to production",
+          "purpose": "Pre-release testing without traffic",
+          "data": "Sanitized copy of production data"
+        },
+        "development": {
+          "pod_security": "Relaxed (privileged containers allowed)",
+          "network_policy": "More permissive for debugging",
+          "resource_quotas": "CPU: 10 cores, Memory: 20 GB",
+          "purpose": "Developer testing and experimentation"
+        }
+      },
+
+      "ingress_configuration": {
+        "ingress_controller": "AWS Load Balancer Controller",
+        "load_balancer": "Application Load Balancer (ALB)",
+        "ssl_termination": "ACM certificates (auto-renewal)",
+        "routes": {
+          "api": {
+            "path": "/api/*",
+            "target": "api-gateway-service",
+            "port": 3000
+          },
+          "discord_webhook": {
+            "path": "/discord/*",
+            "target": "discord-bot-service",
+            "port": 8080
+          },
+          "dashboard": {
+            "path": "/dashboard",
+            "target": "dashboard-service",
+            "port": 3001
+          }
+        },
+        "rate_limiting": "WAF rules + API Gateway throttling",
+        "waf_rules": [
+          "Block SQL injection patterns",
+          "Block XSS payloads",
+          "Rate limit: 1000 req/min per IP",
+          "Geo-blocking if configured"
+        ]
+      },
+
+      "persistent_storage": {
+        "storage_classes": {
+          "fast_ssd": {
+            "type": "gp3 (EBS)",
+            "iops": 3000,
+            "throughput": "125 MB/s",
+            "use_case": "Database, cache"
+          },
+          "standard": {
+            "type": "gp2 (EBS)",
+            "use_case": "Application logs, backups"
+          }
+        },
+        "persistent_volumes": {
+          "postgresql": {
+            "size": "100 GB",
+            "storage_class": "fast_ssd",
+            "backup_frequency": "Daily snapshots"
+          },
+          "redis": {
+            "size": "50 GB",
+            "storage_class": "fast_ssd",
+            "backup": "AOF (Append-Only File)"
+          },
+          "quarantine_storage": {
+            "size": "500 GB",
+            "storage_class": "standard",
+            "encryption": "AES-256 at rest"
+          }
+        }
+      }
+    },
+
+    "database_strategy": {
+      "postgresql_primary": {
+        "version": "15+",
+        "instance_class": "db.r6i.2xlarge (60 GB RAM)",
+        "multi_az": true,
+        "backup_retention": "30 days + weekly snapshots",
+        "monitoring": "CloudWatch + pgBadger",
+        "extensions": [
+          "pgcrypto (encryption)",
+          "pg_trgm (full-text search)",
+          "uuid-ossp (UUID generation)",
+          "timescaledb (time-series)"
+        ]
+      },
+
+      "redis_cache": {
+        "engine": "Redis 7.0+",
+        "cluster_mode": "Disabled (single primary + replicas)",
+        "replication": "Multi-AZ automatic failover",
+        "persistence": "RDB (snapshots) + AOF (append-only)",
+        "eviction_policy": "allkeys-lru (least recently used)"
+      },
+
+      "elasticsearch_analytics": {
+        "version": "8.0+",
+        "node_count": 3,
+        "node_type": "r6i.xlarge (32 GB RAM)",
+        "indices": [
+          {
+            "name": "security_logs",
+            "shards": 5,
+            "replicas": 1,
+            "retention": "30 days"
+          },
+          {
+            "name": "audit_trail",
+            "shards": 3,
+            "replicas": 2,
+            "retention": "7 years"
+          },
+          {
+            "name": "benchmark_results",
+            "shards": 2,
+            "replicas": 1,
+            "retention": "2 years"
+          }
+        ]
+      },
+
+      "s3_archival": {
+        "bucket": "cheetah-backups-{region}",
+        "encryption": "AES-256 (default AWS)",
+        "versioning": "Enabled (keep 90 days)",
+        "lifecycle_rules": [
+          {
+            "age_days": 30,
+            "transition": "GLACIER"
+          },
+          {
+            "age_days": 365,
+            "transition": "DEEP_ARCHIVE"
+          }
+        ],
+        "cross_region_replication": "Enabled to secondary region"
+      }
+    },
+
+    "monitoring_and_observability": {
+      "prometheus_setup": {
+        "scrape_targets": [
+          "kubernetes (node_exporter, kube-state-metrics)",
+          "Application services (OpenTelemetry exporters)",
+          "Databases (postgres_exporter, redis_exporter)",
+          "Infrastructure (aws-cloudwatch-exporter)"
+        ],
+        "scrape_interval": "30 seconds",
+        "retention": "15 days (local TSDB)",
+        "external_storage": "Thanos for long-term retention"
+      },
+
+      "alerting_rules": {
+        "critical_alerts": {
+          "api_down": {
+            "condition": "up{job='api-gateway'} == 0",
+            "for": "2 minutes",
+            "severity": "CRITICAL",
+            "action": "Page on-call immediately"
+          },
+          "database_unavailable": {
+            "condition": "pg_up == 0",
+            "for": "1 minute",
+            "severity": "CRITICAL",
+            "action": "Trigger incident response"
+          },
+          "high_error_rate": {
+            "condition": "rate(errors_total[5m]) > 1000",
+            "for": "5 minutes",
+            "severity": "HIGH",
+            "action": "Alert on-call engineer"
+          },
+          "disk_space_critical": {
+            "condition": "disk_available_percent < 5",
+            "for": "1 minute",
+            "severity": "CRITICAL",
+            "action": "Page on-call + auto-scale"
+          }
+        },
+        "performance_alerts": {
+          "high_latency": {
+            "condition": "histogram_quantile(0.95, latency) > 200ms",
+            "for": "10 minutes",
+            "severity": "HIGH"
+          },
+          "high_memory": {
+            "condition": "memory_usage_percent > 80",
+            "for": "5 minutes",
+            "severity": "MEDIUM"
+          },
+          "high_cpu": {
+            "condition": "cpu_usage_percent > 80",
+            "for": "5 minutes",
+            "severity": "MEDIUM"
+          }
+        }
+      },
+
+      "grafana_dashboards": {
+        "dashboard_1_system_overview": {
+          "metrics": [
+            "Cluster health",
+            "Node utilization",
+            "Pod replicas",
+            "Network traffic",
+            "Disk usage"
+          ],
+          "refresh_rate": "30 seconds"
+        },
+        "dashboard_2_security_metrics": {
+          "metrics": [
+            "Malware detection rate",
+            "False positive rate",
+            "Mean time to detect",
+            "Mean time to respond",
+            "Quarantine queue depth"
+          ]
+        },
+        "dashboard_3_api_performance": {
+          "metrics": [
+            "Request rate (RPS)",
+            "Latency (p50, p95, p99)",
+            "Error rate (4xx, 5xx)",
+            "Response size distribution",
+            "HTTP method breakdown"
+          ]
+        },
+        "dashboard_4_database_health": {
+          "metrics": [
+            "Connection count",
+            "Query latency",
+            "Replication lag",
+            "Cache hit rate",
+            "Disk usage"
+          ]
+        }
+      },
+
+      "distributed_tracing": {
+        "tool": "Jaeger or AWS X-Ray",
+        "sampling_rate": "10% in production (cost optimization)",
+        "trace_retention": "72 hours",
+        "exported_spans": "OpenTelemetry protocol"
+      },
+
+      "log_aggregation": {
+        "collection": "Fluent Bit on every pod",
+        "shipping": "Send to Elasticsearch",
+        "log_level": "INFO (DEBUG in staging/dev)",
+        "structured_logging": "JSON format with context fields",
+        "retention_by_level": {
+          "DEBUG": "7 days",
+          "INFO": "30 days",
+          "WARNING": "90 days",
+          "ERROR": "1 year"
+        }
+      }
+    },
+
+    "backup_and_disaster_recovery": {
+      "backup_strategy": {
+        "databases": {
+          "frequency": "Hourly snapshots + daily full backup",
+          "retention": "30 days hot, 1 year cold (Glacier)",
+          "rto": "1 hour (restore time objective)",
+          "rpo": "5 minutes (recovery point objective)"
+        },
+        "kubernetes_state": {
+          "tool": "Velero",
+          "frequency": "Daily",
+          "retention": "30 days",
+          "includes": "PVCs, Secrets, ConfigMaps, CRDs"
+        },
+        "application_data": {
+          "s3_sync": "Every 4 hours",
+          "format": "Encrypted JSON exports",
+          "retention": "7 years (compliance)"
+        }
+      },
+
+      "disaster_recovery_plan": {
+        "rto_target": "1 hour",
+        "rpo_target": "15 minutes",
+        "failover_procedure": {
+          "step_1": "Detect primary region failure (CloudWatch)",
+          "step_2": "Trigger automated failover to secondary region",
+          "step_3": "Restore from latest backup (Velero)",
+          "step_4": "Update DNS to point to secondary",
+          "step_5": "Verify all services healthy",
+          "step_6": "Notify customers"
+        },
+        "testing": "Monthly failover drills"
+      }
+    },
+
+    "incident_response_automation": {
+      "incident_classification": {
+        "p0_critical": {
+          "examples": ["Data breach", "API down", "Security vulnerability"],
+          "response_time": "<5 minutes",
+          "escalation": "Page VP + CEO"
+        },
+        "p1_high": {
+          "examples": ["Performance degradation", "High error rate"],
+          "response_time": "<15 minutes",
+          "escalation": "Page on-call manager + team"
+        },
+        "p2_medium": {
+          "examples": ["Minor issue", "Degraded feature"],
+          "response_time": "<1 hour",
+          "escalation": "Notify team lead"
+        },
+        "p3_low": {
+          "examples": ["Documentation issue", "Non-critical bug"],
+          "response_time": "<24 hours",
+          "escalation": "Add to backlog"
+        }
+      },
+
+      "automated_response_actions": {
+        "high_error_rate_detected": {
+          "actions": [
+            "Page on-call engineer",
+            "Create incident in PagerDuty",
+            "Create Discord incident channel",
+            "Start collecting logs/metrics",
+            "Scale up pod replicas 2x"
+          ],
+          "timeline": "Automated within 1 minute"
+        },
+        "security_threat_detected": {
+          "actions": [
+            "Page security on-call",
+            "Isolate affected pods",
+            "Collect forensics (memory dumps, logs)",
+            "Block traffic from suspicious IP",
+            "Create incident ticket",
+            "Notify affected customers"
+          ],
+          "timeline": "Automated within 30 seconds"
+        },
+        "database_failure_detected": {
+          "actions": [
+            "Trigger failover to replica",
+            "Page DBA on-call",
+            "Create incident",
+            "Start backup restore procedure",
+            "Notify API consumers"
+          ],
+          "timeline": "Automated within 2 minutes"
+        }
+      },
+
+      "postmortem_automation": {
+        "trigger": "Incident resolution marked in PagerDuty",
+        "process": [
+          "Generate initial postmortem template",
+          "Collect timeline from logs",
+          "Extract key metrics (duration, impact)",
+          "Create Google Doc for team collaboration",
+          "Schedule retrospective meeting (3 days out)",
+          "Auto-create follow-up tasks in Jira"
+        ]
+      }
+    },
+
+    "ci_cd_pipeline": {
+      "source_control": "GitHub with branch protection rules",
+
+      "pipeline_stages": {
+        "stage_1_code_commit": {
+          "triggers": "Push to PR or main",
+          "actions": [
+            "Pre-commit hooks (lint, format)",
+            "Security scanning (Semgrep, Snyk)"
+          ]
+        },
+        "stage_2_build_and_test": {
+          "triggers": "Automatic on commit",
+          "actions": [
+            "Build Docker image",
+            "Unit tests (Jest/Pytest)",
+            "Integration tests (Testcontainers)",
+            "Security tests (OWASP ZAP)",
+            "Scan image for vulnerabilities (Trivy)"
+          ],
+          "duration": "15-20 minutes"
+        },
+        "stage_3_push_image": {
+          "triggers": "All tests pass",
+          "actions": [
+            "Tag image with version",
+            "Push to ECR (private registry)",
+            "Sign image with Cosign",
+            "Generate SBOM"
+          ]
+        },
+        "stage_4_deploy_staging": {
+          "triggers": "Automatic",
+          "actions": [
+            "Deploy to staging Kubernetes cluster",
+            "Run smoke tests",
+            "Run performance benchmarks",
+            "Generate security report"
+          ],
+          "duration": "10 minutes"
+        },
+        "stage_5_approval": {
+          "triggers": "Staging tests pass",
+          "actions": [
+            "Send approval request to Slack/Discord",
+            "Require human review + 2 approvals",
+            "Wait max 24 hours for approval"
+          ]
+        },
+        "stage_6_deploy_production": {
+          "triggers": "Manual approval",
+          "actions": [
+            "Blue-green deployment (0 downtime)",
+            "Monitor error rate (5 minutes)",
+            "Auto-rollback if error rate >5%",
+            "Notify stakeholders"
+          ],
+          "rollback_condition": "Error rate > 5% OR latency p95 > 500ms"
+        }
+      },
+
+      "deployment_strategy": {
+        "blue_green": {
+          "current_version": "Blue (live traffic)",
+          "new_version": "Green (no traffic)",
+          "switch": "ALB target group switch",
+          "rollback": "Instant ALB switch back"
+        },
+        "traffic_shifting": {
+          "phase_1": "1% traffic to new version (5 min)",
+          "phase_2": "5% traffic (10 min)",
+          "phase_3": "25% traffic (10 min)",
+          "phase_4": "100% traffic",
+          "rollback_at_any_phase": "If metrics degrade"
+        }
+      }
+    },
+
+    "security_hardening": {
+      "pod_security": {
+        "security_context": {
+          "run_as_non_root": true,
+          "read_only_root_filesystem": true,
+          "allow_privilege_escalation": false,
+          "capabilities": {
+            "drop": ["ALL"],
+            "add": ["NET_BIND_SERVICE"]
+          }
+        }
+      },
+
+      "network_security": {
+        "network_policies": {
+          "default": "Deny all ingress",
+          "allows": [
+            "Pod to pod (internal)",
+            "Ingress controller to services",
+            "Services to databases"
+          ]
+        },
+        "egress_control": {
+          "api_service": "Only allow to external APIs",
+          "database_service": "Only allow to database",
+          "discord_bot": "Only allow to discord.com API"
+        }
+      },
+
+      "secret_management": {
+        "tool": "HashiCorp Vault or AWS Secrets Manager",
+        "storage": "Never in Git, Kubernetes Secrets (only as encrypted mount)",
+        "rotation": "Every 90 days",
+        "audit_logging": "All secret access logged"
+      },
+
+      "rbac_configuration": {
+        "roles": [
+          {
+            "name": "admin",
+            "permissions": ["*"]
+          },
+          {
+            "name": "security_team",
+            "permissions": ["Read security logs", "Approve quarantine release"]
+          },
+          {
+            "name": "developer",
+            "permissions": ["Read logs", "View metrics", "No data access"]
+          }
+        ]
+      },
+
+      "vulnerability_scanning": {
+        "container_images": {
+          "tool": "Trivy + Grype",
+          "frequency": "On build + daily rescans",
+          "policy": "Fail build on CRITICAL, warn on HIGH"
+        },
+        "dependencies": {
+          "tool": "Snyk or Dependabot",
+          "frequency": "Daily",
+          "policy": "Auto-merge patches"
+        },
+        "infrastructure": {
+          "tool": "CloudMapper + CloudTrail",
+          "frequency": "Daily",
+          "detection": "Misconfigurations, exposed resources"
+        }
+      }
+    },
+
+    "cost_optimization": {
+      "kubernetes_costs": {
+        "node_scaling": "Cluster autoscaler (scale down off-hours)",
+        "pod_limits": "Set resource requests/limits to avoid over-provisioning",
+        "spot_instances": "Use for batch/test workloads (70% discount)",
+        "reserved_instances": "Commit to 1-year plan (30% discount)"
+      },
+
+      "database_costs": {
+        "rds": "Multi-AZ for production, single-AZ for staging",
+        "rds_reserved": "1-year commitment for 30% savings",
+        "elasticache": "Shared Redis instance for staging"
+      },
+
+      "storage_costs": {
+        "s3_lifecycle": "Move to Glacier after 30 days, Deep Archive after 1 year",
+        "ebs_optimization": "gp3 instead of gp2 (saves 20%)",
+        "snapshots": "Delete old snapshots automatically"
+      },
+
+      "estimated_monthly_costs": {
+        "kubernetes_cluster": 3500,
+        "databases": 1200,
+        "storage": 300,
+        "monitoring": 200,
+        "api_gateways": 150,
+        "data_transfer": 400,
+        "total_production": 5750,
+        "staging_environment": 2000,
+        "development_environment": 800,
+        "total_monthly": 8550
+      }
+    },
+
+    "compliance_and_audit": {
+      "compliance_frameworks": [
+        "SOC2 Type II (annual audit)",
+        "ISO27001 (information security)",
+        "GDPR (data privacy for EU users)",
+        "HIPAA (healthcare customers)",
+        "PCI-DSS (if processing payments)"
+      ],
+
+      "audit_trail_requirements": {
+        "retention": "7 years minimum",
+        "immutability": "Cryptographically verified",
+        "accessibility": "User-readable + machine API",
+        "automated_reports": "NIST CSF compliance report monthly"
+      },
+
+      "vulnerability_disclosure": {
+        "program": "bug_bounty@cheetah.com",
+        "disclosure_timeline": "90 days to fix, 30 days notice",
+        "coordination": "CERT/CC coordination"
+      }
+    },
+
+    "performance_tuning": {
+      "api_optimization": {
+        "caching_strategy": "HTTP cache headers, Redis layer, CDN for static assets",
+        "query_optimization": "N+1 query pre
