@@ -281,24 +281,15 @@ class OverlayCyberTech:
             Dictionary of red team assessment results.
         """
         print("🛡️ Running authenticated red team assessment...")
-        sanitized_failed_logins = failed_logins if failed_logins is not None else 0
-        sanitized_time_window = (
-            time_window_minutes if time_window_minutes is not None else 15
-        )
-        sanitized_new_location = new_location if new_location is not None else False
-        sanitized_data_transfer = data_transfer_mb if data_transfer_mb is not None else 0.0
-        sanitized_destination_external = (
-            destination_external if destination_external is not None else False
-        )
         return self.red_team.run_assessment(
             credentials=credentials,
             open_ports=open_ports,
             banners=banners,
-            failed_logins=sanitized_failed_logins,
-            time_window_minutes=sanitized_time_window,
-            new_location=sanitized_new_location,
-            data_transfer_mb=sanitized_data_transfer,
-            destination_external=sanitized_destination_external,
+            failed_logins=failed_logins,
+            time_window_minutes=time_window_minutes,
+            new_location=new_location,
+            data_transfer_mb=data_transfer_mb,
+            destination_external=destination_external,
         )
     
     def generate_security_report(self, output_file: Optional[str] = None) -> str:

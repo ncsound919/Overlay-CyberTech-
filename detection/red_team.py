@@ -69,9 +69,9 @@ class RedTeamExercise:
         """Validate red team credentials and scope."""
         now = time.time()
         token_valid = credentials.token in self._allowed_tokens
-        # Expiry is exclusive: credentials are valid up to but not including expires_at.
+        # Expiry is exclusive: credentials are valid strictly before expires_at.
         is_expired = (
-            credentials.expires_at is not None and credentials.expires_at < now
+            credentials.expires_at is not None and credentials.expires_at <= now
         )
         authenticated = token_valid and not is_expired
 
@@ -107,17 +107,18 @@ class RedTeamExercise:
         credentials: RedTeamCredential,
         open_ports: Optional[List[int]] = None,
         banners: Optional[Dict[int, str]] = None,
-        failed_logins: int = 0,
-        time_window_minutes: int = 15,
-        new_location: bool = False,
-        data_transfer_mb: float = 0.0,
-        destination_external: bool = False,
+        failed_logins: Optional[int] = None,
+        time_window_minutes: Optional[int] = None,
+        new_location: Optional[bool] = None,
+        data_transfer_mb: Optional[float] = None,
+        destination_external: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
-        Execute a red team self-assessment with authentication and safety controls.
+        Execute a red team assessment with authentication and safety controls.
         
-        Intrusion detection runs against the current host; vulnerability scanning
-        uses the supplied target characteristics (ports/banners).
+        Intrusion detection runs locally for situational awareness, while
+        vulnerability scanning uses the supplied target characteristics
+        (ports/banners).
         """
         auth = self.authenticate(credentials)
         if not auth["authenticated"]:
@@ -130,9 +131,17 @@ class RedTeamExercise:
                 "automated_safety": empty_safety,
             }
 
-        sanitized_failed_logins = max(0, failed_logins)
-        sanitized_time_window = max(1, time_window_minutes)
-        sanitized_data_transfer = max(0.0, data_transfer_mb)
+        sanitized_failed_logins = max(0, failed_logins or 0)
+        sanitized_time_window = max(
+            1, time_window_minutes if time_window_minutes is not None else 15
+        )
+        sanitized_data_transfer = max(
+            0.0, data_transfer_mb if data_transfer_mb is not None else 0.0
+        )
+        sanitized_new_location = new_location if new_location is not None else False
+        sanitized_destination_external = (
+            destination_external if destination_external is not None else False
+        )
 
         port_set = open_ports or list(self.DEFAULT_PORTS)
         intrusion_result = self._intrusion_detector.scan_system()
@@ -148,14 +157,14 @@ class RedTeamExercise:
             "failed_logins": sanitized_failed_logins,
             "time_window_minutes": sanitized_time_window,
             "login_risk_score": risk_assessment.get("risk_score", 0),
-            "new_location": new_location,
+            "new_location": sanitized_new_location,
             "threat_type": "red_team",
             "confidence": min(
                 1.0,
                 vuln_result["risk_score"] / self.CONFIDENCE_DIVISOR,
             ),
             "data_transfer_mb": sanitized_data_transfer,
-            "destination_external": destination_external,
+            "destination_external": sanitized_destination_external,
         }
         safety_actions, safety_violations = self._policy_engine.evaluate(
             safety_context
