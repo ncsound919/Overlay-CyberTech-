@@ -1344,7 +1344,6 @@ class EndocrineSystem(BiologicalSystemComponent):
         self._pending_changes.clear()
         
         for change in changes_to_apply:
-            target_id = change["target_id"]
             
             # In a real implementation, this would call APIs or push configs
             # For now, we just track the changes
