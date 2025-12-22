@@ -9,12 +9,11 @@ Provides endpoints for:
 - GET /api/security/threats - Get detected threats
 """
 
-from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
-from backend.middleware.auth import User, authenticate_request, AuthenticationError
+from backend.middleware.auth import User, authenticate_request
 from backend.middleware.rate_limiter import check_rate_limit, RateLimitError
-from backend.models.schemas import SecurityEventCreate, SecurityEventResponse, SecurityStateResponse
+from backend.models.schemas import SecurityEventCreate
 from backend.services.security_service import SecurityService
 
 
@@ -92,7 +91,7 @@ class SecurityRoutes:
         Returns:
             Created event response
         """
-        user = self._check_auth_and_rate_limit(auth_header, ip_address)
+        self._check_auth_and_rate_limit(auth_header, ip_address)
         
         # Create event from data
         event = SecurityEventCreate(

@@ -10,33 +10,27 @@ Tests cover:
 - Application factory
 """
 
-import json
-import os
 import pytest
 import time
-from datetime import datetime
 
 # Backend imports
-from backend.config import Config, get_config, DatabaseConfig, SecurityConfig, LoggingConfig
+from backend.config import Config, get_config, DatabaseConfig, SecurityConfig
 from backend.models.schemas import (
     SecurityEventCreate, SecurityEventResponse, SecurityStateResponse,
-    ThreatResponse, ScanRequest, ScanResponse, PlaybookExecuteRequest,
-    PlaybookExecuteResponse, SystemStatusResponse, HealthCheckResponse,
-    Severity, ThreatLevel, EventType
+    ScanRequest, PlaybookExecuteRequest,
+    Severity, ThreatLevel
 )
 from backend.middleware.auth import (
     create_token, verify_token, authenticate_request, 
     get_current_user, User, AuthenticationError
 )
 from backend.middleware.rate_limiter import (
-    RateLimiter, TokenBucket, check_rate_limit, RateLimitError
+    RateLimiter, TokenBucket
 )
 from backend.services.security_service import SecurityService
 from backend.services.scan_service import ScanService
 from backend.services.playbook_service import PlaybookService
 from backend.routes.security import SecurityRoutes
-from backend.routes.scan import ScanRoutes
-from backend.routes.playbook import PlaybookRoutes
 from backend.routes.system import SystemRoutes
 from backend.app import BackendApp, create_app
 
@@ -139,6 +133,28 @@ class TestSchemas:
         """Test ThreatLevel enum values."""
         assert ThreatLevel.NONE.value == "NONE"
         assert ThreatLevel.CRITICAL.value == "CRITICAL"
+    
+    def test_security_event_validation_empty_fields(self):
+        """Test SecurityEventCreate validates empty fields."""
+        with pytest.raises(ValueError, match="must be a non-empty string"):
+            SecurityEventCreate(
+                event_type="",
+                severity="HIGH",
+                detected_threat="Test threat",
+                confidence_score=0.5,
+                affected_asset="server-01"
+            )
+    
+    def test_security_event_validation_confidence_score(self):
+        """Test SecurityEventCreate validates confidence_score range."""
+        with pytest.raises(ValueError, match="between 0.0 and 1.0"):
+            SecurityEventCreate(
+                event_type="intrusion",
+                severity="HIGH",
+                detected_threat="Test threat",
+                confidence_score=1.5,  # Invalid: > 1.0
+                affected_asset="server-01"
+            )
 
 
 # =============================================================================
@@ -183,12 +199,27 @@ class TestAuthMiddleware:
     
     def test_verify_tampered_token(self):
         """Test detection of tampered token."""
+        import json
+        import base64
+        
         token = create_token(user_id="user-123", username="testuser")
         
-        # Tamper with the token
+        # Properly tamper by modifying the payload
         parts = token.split(".")
-        parts[1] = parts[1][:-4] + "XXXX"  # Modify payload
-        tampered = ".".join(parts)
+        
+        # Decode payload, modify it, and re-encode
+        # Add padding for base64 decoding
+        payload_b64 = parts[1]
+        padding = 4 - len(payload_b64) % 4
+        if padding != 4:
+            payload_b64 += '=' * padding
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64).decode('utf-8'))
+        payload["sub"] = "hacked-user"  # Modify the user ID
+        modified_payload = base64.urlsafe_b64encode(
+            json.dumps(payload).encode('utf-8')
+        ).rstrip(b'=').decode('utf-8')
+        
+        tampered = f"{parts[0]}.{modified_payload}.{parts[2]}"
         
         is_valid, _ = verify_token(tampered)
         assert is_valid is False

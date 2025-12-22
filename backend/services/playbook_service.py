@@ -7,12 +7,16 @@ Provides business logic for:
 - Tracking playbook execution history
 """
 
+import logging
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from backend.models.schemas import PlaybookExecuteRequest, PlaybookExecuteResponse
+
+# Module logger for audit failures
+_logger = logging.getLogger(__name__)
 
 
 # Predefined playbooks
@@ -219,8 +223,9 @@ class PlaybookService:
                 "status": execution_data["status"],
                 "data": execution_data
             })
-        except Exception:
-            pass
+        except Exception as e:
+            # Log audit failure so administrators are aware
+            _logger.warning(f"Failed to log playbook execution {execution_id} to audit trail: {e}")
         
         return PlaybookExecuteResponse(
             playbook_execution_id=execution_id,
@@ -244,43 +249,33 @@ class PlaybookService:
         Returns:
             True if successful, False otherwise
         """
+        # Map actions to platform operations using a dispatch table
+        # In production, these would call actual platform methods
+        action_handlers = {
+            "ISOLATE_ENDPOINT": lambda p, c: True,
+            "ISOLATE_DEVICE": lambda p, c: True,
+            "REVOKE_CREDENTIALS": lambda p, c: True,
+            "BLOCK_IP_RANGE": lambda p, c: True,
+            "ALERT_SECURITY_TEAM": lambda p, c: True,
+            "MONITOR_ENHANCED": lambda p, c: True,
+            "ENABLE_RATE_LIMITING": lambda p, c: True,
+            "BLOCK_SUSPICIOUS_IPS": lambda p, c: True,
+            "SCALE_INFRASTRUCTURE": lambda p, c: True,
+            "ALERT_OPERATIONS": lambda p, c: True,
+            "ISOLATE_AFFECTED_SYSTEMS": lambda p, c: True,
+            "PRESERVE_EVIDENCE": lambda p, c: True,
+            "REVOKE_ALL_ACCESS": lambda p, c: True,
+            "NOTIFY_LEGAL": lambda p, c: True,
+        }
+        
         try:
-            platform = self._get_platform()
-            
-            # Map actions to platform operations
-            if action == "ISOLATE_ENDPOINT":
-                # Would isolate the endpoint in production
-                return True
-            elif action == "ISOLATE_DEVICE":
-                return True
-            elif action == "REVOKE_CREDENTIALS":
-                return True
-            elif action == "BLOCK_IP_RANGE":
-                return True
-            elif action == "ALERT_SECURITY_TEAM":
-                return True
-            elif action == "MONITOR_ENHANCED":
-                return True
-            elif action == "ENABLE_RATE_LIMITING":
-                return True
-            elif action == "BLOCK_SUSPICIOUS_IPS":
-                return True
-            elif action == "SCALE_INFRASTRUCTURE":
-                return True
-            elif action == "ALERT_OPERATIONS":
-                return True
-            elif action == "ISOLATE_AFFECTED_SYSTEMS":
-                return True
-            elif action == "PRESERVE_EVIDENCE":
-                return True
-            elif action == "REVOKE_ALL_ACCESS":
-                return True
-            elif action == "NOTIFY_LEGAL":
-                return True
-            else:
+            handler = action_handlers.get(action)
+            if handler is None:
                 # Unknown action
                 return False
-                
+            
+            platform = self._get_platform()
+            return handler(platform, context)
         except Exception:
             return False
     

@@ -8,9 +8,8 @@ Provides business logic for:
 """
 
 import hashlib
-import time
+import logging
 import uuid
-from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -20,6 +19,9 @@ from backend.models.schemas import (
     SecurityStateResponse,
     ThreatResponse,
 )
+
+# Module logger for audit failures
+_logger = logging.getLogger(__name__)
 
 
 class SecurityService:
@@ -106,8 +108,9 @@ class SecurityService:
                 "severity": event.severity,
                 "data": event_data
             })
-        except Exception:
-            pass  # Continue even if audit logging fails
+        except Exception as e:
+            # Log audit failure so administrators are aware
+            _logger.warning(f"Failed to log event {event_id} to audit trail: {e}")
         
         return SecurityEventResponse(
             event_id=event_id,

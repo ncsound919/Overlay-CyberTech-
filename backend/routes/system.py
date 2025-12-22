@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from backend.middleware.auth import get_current_user
-from backend.middleware.rate_limiter import check_rate_limit
+from backend.middleware.rate_limiter import check_rate_limit, RateLimitError
 
 
 class SystemRoutes:
@@ -49,7 +49,9 @@ class SystemRoutes:
             Health status
         """
         # Rate limit health checks too (but with higher limits)
-        allowed, _ = check_rate_limit(ip_address, None)
+        allowed, retry_after = check_rate_limit(ip_address, None)
+        if not allowed:
+            raise RateLimitError("Rate limit exceeded", retry_after=retry_after)
         
         timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         
@@ -99,7 +101,9 @@ class SystemRoutes:
             System status
         """
         # Rate limit
-        allowed, _ = check_rate_limit(ip_address, None)
+        allowed, retry_after = check_rate_limit(ip_address, None)
+        if not allowed:
+            raise RateLimitError("Rate limit exceeded", retry_after=retry_after)
         
         # Calculate uptime
         now = datetime.now(timezone.utc)

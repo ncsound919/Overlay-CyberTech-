@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.middleware.auth import User, authenticate_request
 from backend.middleware.rate_limiter import check_rate_limit, RateLimitError
-from backend.models.schemas import PlaybookExecuteRequest, PlaybookExecuteResponse
+from backend.models.schemas import PlaybookExecuteRequest
 from backend.services.playbook_service import PlaybookService
 
 

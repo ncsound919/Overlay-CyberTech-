@@ -13,10 +13,8 @@ For production, use a proper WSGI/ASGI server like Gunicorn or Uvicorn.
 import json
 import logging
 import sys
-from dataclasses import asdict
-from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 from backend.config import get_config, Config
@@ -145,6 +143,20 @@ class BackendApp:
         # Strip trailing slash
         path = path.rstrip("/")
         
+        # Helper to parse limit parameter with validation
+        def parse_limit(default: int = 100) -> Tuple[Optional[int], Optional[Tuple[int, Dict[str, Any]]]]:
+            """Parse and validate limit parameter. Returns (value, error_response)."""
+            limit_param = query_params.get("limit")
+            if limit_param is None:
+                return default, None
+            try:
+                return int(limit_param), None
+            except ValueError:
+                return None, (400, {
+                    "error": "Bad Request",
+                    "message": "Invalid 'limit' parameter; must be an integer."
+                })
+        
         # Health check (no auth required)
         if path == "/api/health" and method == "GET":
             return 200, self.system_routes.health_check(ip_address)
@@ -160,10 +172,13 @@ class BackendApp:
         # Security events
         if path == "/api/security/events":
             if method == "GET":
+                limit, error = parse_limit()
+                if error:
+                    return error
                 return 200, self.security_routes.list_events(
                     event_type=query_params.get("event_type"),
                     severity=query_params.get("severity"),
-                    limit=int(query_params.get("limit", 100)),
+                    limit=limit,
                     auth_header=auth_header,
                     ip_address=ip_address
                 )
@@ -188,8 +203,11 @@ class BackendApp:
         
         # Threats
         if path == "/api/security/threats" and method == "GET":
+            limit, error = parse_limit()
+            if error:
+                return error
             return 200, self.security_routes.get_threats(
-                limit=int(query_params.get("limit", 100)),
+                limit=limit,
                 auth_header=auth_header,
                 ip_address=ip_address
             )
@@ -197,8 +215,11 @@ class BackendApp:
         # Scans
         if path == "/api/scan":
             if method == "GET":
+                limit, error = parse_limit()
+                if error:
+                    return error
                 return 200, self.scan_routes.list_scans(
-                    limit=int(query_params.get("limit", 100)),
+                    limit=limit,
                     auth_header=auth_header,
                     ip_address=ip_address
                 )
@@ -229,9 +250,12 @@ class BackendApp:
             return 200, self.playbook_routes.list_playbooks(auth_header, ip_address)
         
         if path == "/api/playbooks/executions" and method == "GET":
+            limit, error = parse_limit()
+            if error:
+                return error
             return 200, self.playbook_routes.list_executions(
                 playbook_id=query_params.get("playbook_id"),
-                limit=int(query_params.get("limit", 100)),
+                limit=limit,
                 auth_header=auth_header,
                 ip_address=ip_address
             )

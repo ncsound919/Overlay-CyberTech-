@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.middleware.auth import User, authenticate_request
 from backend.middleware.rate_limiter import check_rate_limit, RateLimitError
-from backend.models.schemas import ScanRequest, ScanResponse
+from backend.models.schemas import ScanRequest
 from backend.services.scan_service import ScanService
 
 

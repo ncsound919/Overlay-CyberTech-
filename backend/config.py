@@ -6,7 +6,6 @@ Handles environment-based configuration with sensible defaults.
 
 import os
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -56,6 +55,15 @@ class Config:
     def is_development(self) -> bool:
         """Check if running in development environment."""
         return self.environment == "development"
+    
+    def __post_init__(self) -> None:
+        """Validate configuration after initialization."""
+        # Prevent production use with default secret key
+        if self.is_production and self.security.secret_key == "change-me-in-production":
+            raise ValueError(
+                "Cannot use default secret key in production. "
+                "Set the SECRET_KEY environment variable."
+            )
 
 
 def get_config() -> Config:

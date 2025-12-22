@@ -5,7 +5,6 @@ These schemas define the structure of data exchanged through the API.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -52,6 +51,24 @@ class SecurityEventCreate:
     affected_asset: str
     indicators_of_compromise: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def __post_init__(self) -> None:
+        """Validate fields after initialization."""
+        # Validate required string fields are non-empty
+        for field_name in ("event_type", "detected_threat", "affected_asset"):
+            value = getattr(self, field_name)
+            if not isinstance(value, str):
+                raise ValueError(f"{field_name} must be a string, got {type(value).__name__}")
+            stripped = value.strip()
+            if not stripped:
+                raise ValueError(f"{field_name} must be a non-empty string")
+            setattr(self, field_name, stripped)
+        
+        # Validate confidence_score is between 0.0 and 1.0
+        if not isinstance(self.confidence_score, (int, float)):
+            raise ValueError("confidence_score must be a number")
+        if self.confidence_score < 0.0 or self.confidence_score > 1.0:
+            raise ValueError("confidence_score must be between 0.0 and 1.0")
 
 
 @dataclass
