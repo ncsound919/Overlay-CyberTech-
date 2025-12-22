@@ -23,7 +23,10 @@ class RedTeamCredential:
     Represents credentials for a red team engagement.
 
     Attributes:
-        expires_at: UNIX timestamp in seconds (UTC) that marks when the credential is no longer valid.
+        team_id: Identifier for the red team or engagement.
+        token: Authentication token used to authorize the red team.
+        scope: List of permitted operations or targets for this credential.
+        expires_at: Optional UNIX timestamp in seconds (UTC) that marks when the credential is no longer valid.
     """
 
     team_id: str
