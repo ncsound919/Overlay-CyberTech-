@@ -29,7 +29,7 @@ Or use the lazily-exposed module attribute:
 
 import json
 from copy import deepcopy
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 
 _MESH_NET_JSON = """{
@@ -261,6 +261,9 @@ _MESH_NET_JSON = """{
 
 _mesh_net_cache: Optional[Dict[str, Any]] = None
 
+if TYPE_CHECKING:  # Aid static analysis without altering runtime lazy load
+    mesh_net: Dict[str, Any]  # noqa: F821
+
 
 def _load_mesh_net() -> Dict[str, Any]:
     """Load and cache the mesh specification."""
@@ -278,22 +281,21 @@ def get_mesh_net() -> Dict[str, Any]:
     stored in ``_MESH_NET_JSON`` in this module. At a high level, the
     structure looks like:
 
-    .. code-block:: text
-
         {
             "global_cybersecurity_mesh": {
-                "network_metadata": { ... },
-                "nodes": [ ... ],
-                "trust_and_reputation": { ... },
-                "social_graph": { ... },
-                "threat_intelligence": { ... },
-                "governance": { ... },
-                "privacy_and_compliance": { ... },
-                "economics_and_incentives": { ... },
-                "integration_and_interoperability": { ... },
-                "observability_and_analytics": { ... },
-                "resilience_and_continuity": { ... },
-                "deployment_specifications": { ... }
+                "network_metadata": {...},
+                "architecture": {...},
+                "core_layers": {...},
+                "network_protocols": {...},
+                "reputation_system": {...},
+                "data_structures": {...},
+                "network_governance": {...},
+                "incentive_mechanisms": {...},
+                "scalability_solutions": {...},
+                "security_measures": {...},
+                "integration_interfaces": {...},
+                "monitoring_analytics": {...},
+                "deployment_specifications": {...}
             }
         }
 
