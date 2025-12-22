@@ -27,7 +27,6 @@ from detection.intrusion_detector import IntrusionDetector, IntruderResponse, Ac
 
 from response.lts_engine import (
     LabeledTransitionSystem,
-    PolicyEngine,
     create_security_policies,
 )
 
