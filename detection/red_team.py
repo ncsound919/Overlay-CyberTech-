@@ -24,7 +24,7 @@ class RedTeamCredential:
     team_id: str
     token: str
     scope: List[str] = field(default_factory=list)
-    expires_at: Optional[float] = None
+    expires_at: Optional[float] = None  # UNIX timestamp (seconds, UTC)
 
 
 class RedTeamExercise:
@@ -90,6 +90,11 @@ class RedTeamExercise:
         credentials: RedTeamCredential,
         open_ports: Optional[List[int]] = None,
         banners: Optional[Dict[int, str]] = None,
+        failed_logins: int = 0,
+        time_window_minutes: int = 15,
+        new_location: bool = False,
+        data_transfer_mb: float = 0.0,
+        destination_external: bool = False,
     ) -> Dict[str, Any]:
         """
         Execute a red team assessment with authentication and safety controls.
@@ -116,17 +121,17 @@ class RedTeamExercise:
         risk_assessment = intrusion_result.get("risk_assessment", {})
         safety_context = {
             "vulnerability_severity": highest_severity,
-            "failed_logins": risk_assessment.get("high_threats", 0),
-            "time_window_minutes": 15,
+            "failed_logins": failed_logins,
+            "time_window_minutes": time_window_minutes,
             "login_risk_score": risk_assessment.get("risk_score", 0),
-            "new_location": False,
+            "new_location": new_location,
             "threat_type": "red_team",
             "confidence": min(
                 1.0,
                 vuln_result["risk_score"] / self.CONFIDENCE_DIVISOR,
             ),
-            "data_transfer_mb": 0,
-            "destination_external": False,
+            "data_transfer_mb": data_transfer_mb,
+            "destination_external": destination_external,
         }
         safety_actions, safety_violations = self._policy_engine.evaluate(
             safety_context
