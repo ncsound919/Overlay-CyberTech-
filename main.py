@@ -118,8 +118,6 @@ class OverlayCyberTech:
         
         # Analyze vulnerabilities
         print("  → Analyzing vulnerabilities...")
-        vuln_scanner = self.vulnerability_scanner
-        vulnerabilities = []
         
         # Get attack statistics
         print("  → Generating attack statistics...")
