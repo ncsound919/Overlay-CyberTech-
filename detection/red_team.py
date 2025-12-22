@@ -30,6 +30,8 @@ class RedTeamCredential:
 class RedTeamExercise:
     """Coordinates authenticated red team assessments with automated safety."""
 
+    DEFAULT_PORTS = (22, 80, 443)
+
     def __init__(
         self,
         intrusion_detector: Optional[IntrusionDetector] = None,
@@ -45,7 +47,7 @@ class RedTeamExercise:
             self._allowed_tokens: Set[str] = set(allowed_tokens)
             self._generated_token: Optional[str] = None
         else:
-            token = secrets.token_urlsafe(16)
+            token = secrets.token_urlsafe(32)
             self._allowed_tokens = {token}
             self._generated_token = token
 
@@ -93,15 +95,15 @@ class RedTeamExercise:
                 "authentication": auth,
                 "intrusion_overview": None,
                 "vulnerabilities": None,
-                "automated_safety": {
-                    "actions": [],
-                    "violations": [],
-                    "highest_severity": "NONE",
-                    "risk_score": 0.0,
-                },
-            }
+            "automated_safety": {
+                "actions": [],
+                "violations": [],
+                "highest_severity": "NONE",
+                "risk_score": 0.0,
+            },
+        }
 
-        port_set = open_ports or [22, 80, 443]
+        port_set = open_ports or list(self.DEFAULT_PORTS)
         intrusion_result = self._intrusion_detector.scan_system()
         vuln_result = self._vulnerability_scanner.scan_target(
             open_ports=port_set,
