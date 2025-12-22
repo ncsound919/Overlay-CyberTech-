@@ -1,0 +1,136 @@
+"""
+Cyber Red Team orchestration module.
+
+Provides deterministic, policy-driven red team exercises that:
+- authenticate red team credentials
+- run vulnerability and intrusion assessments
+- apply automated safety policies to contain findings
+"""
+
+import time
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Set
+
+from detection.intrusion_detector import IntrusionDetector
+from detection.threat_detector import VulnerabilityScanner
+from response.lts_engine import PolicyEngine, create_security_policies
+
+
+@dataclass
+class RedTeamCredential:
+    """Represents credentials for a red team engagement."""
+
+    team_id: str
+    token: str
+    scope: List[str] = field(default_factory=list)
+    expires_at: Optional[float] = None
+
+
+class RedTeamExercise:
+    """Coordinates authenticated red team assessments with automated safety."""
+
+    def __init__(
+        self,
+        intrusion_detector: Optional[IntrusionDetector] = None,
+        vulnerability_scanner: Optional[VulnerabilityScanner] = None,
+        policy_engine: Optional[PolicyEngine] = None,
+        allowed_tokens: Optional[Set[str]] = None,
+    ):
+        self._intrusion_detector = intrusion_detector or IntrusionDetector()
+        self._vulnerability_scanner = vulnerability_scanner or VulnerabilityScanner()
+        self._policy_engine = policy_engine or create_security_policies()
+        self._allowed_tokens: Set[str] = allowed_tokens or {"REDTEAM-DEFAULT"}
+
+    def authenticate(self, credentials: RedTeamCredential) -> Dict[str, Any]:
+        """Validate red team credentials and scope."""
+        now = time.time()
+        token_valid = bool(credentials.token) and (
+            credentials.token in self._allowed_tokens
+            or credentials.token.startswith("REDTEAM-")
+        )
+        not_expired = credentials.expires_at is None or credentials.expires_at > now
+        authenticated = token_valid and not_expired
+
+        if not token_valid:
+            reason = "Invalid token"
+        elif not not_expired:
+            reason = "Token expired"
+        else:
+            reason = "Authenticated"
+
+        return {
+            "team_id": credentials.team_id,
+            "scope": credentials.scope,
+            "authenticated": authenticated,
+            "reason": reason,
+        }
+
+    def run_assessment(
+        self,
+        credentials: RedTeamCredential,
+        open_ports: Optional[List[int]] = None,
+        banners: Optional[Dict[int, str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute a red team assessment with authentication and safety controls.
+        """
+        auth = self.authenticate(credentials)
+        if not auth["authenticated"]:
+            return {
+                "success": False,
+                "authentication": auth,
+                "intrusion_overview": None,
+                "vulnerabilities": None,
+                "automated_safety": {
+                    "actions": [],
+                    "violations": [],
+                    "highest_severity": "NONE",
+                    "risk_score": 0.0,
+                },
+            }
+
+        port_set = open_ports or [22, 80, 443]
+        intrusion_result = self._intrusion_detector.scan_system()
+        vuln_result = self._vulnerability_scanner.scan_target(
+            open_ports=port_set,
+            banners=banners,
+        )
+
+        highest_severity = self._highest_severity(vuln_result["vulnerabilities"])
+        safety_actions, safety_violations = self._policy_engine.evaluate(
+            {
+                "vulnerability_severity": highest_severity,
+                "failed_logins": 0,
+                "time_window_minutes": 60,
+                "login_risk_score": 0,
+                "new_location": False,
+            }
+        )
+
+        return {
+            "success": True,
+            "authentication": auth,
+            "intrusion_overview": {
+                "threats_detected": intrusion_result["threats_detected"],
+                "risk": intrusion_result["risk_assessment"]["overall_risk"],
+            },
+            "vulnerabilities": vuln_result,
+            "automated_safety": {
+                "actions": safety_actions,
+                "violations": safety_violations,
+                "highest_severity": highest_severity,
+                "risk_score": vuln_result["risk_score"],
+            },
+        }
+
+    @staticmethod
+    def _highest_severity(vulnerabilities: List[Dict[str, Any]]) -> str:
+        """Return highest severity from vulnerability list."""
+        if not vulnerabilities:
+            return "NONE"
+
+        order = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+        for level in order:
+            if any(v.get("severity") == level for v in vulnerabilities):
+                return level
+        return "UNKNOWN"

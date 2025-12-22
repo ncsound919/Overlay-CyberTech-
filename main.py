@@ -14,7 +14,7 @@ This module provides a unified interface to:
 import argparse
 import sys
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 # Import all major components
@@ -25,11 +25,16 @@ from core.data_structures import ThreatSignatureDB, IPTrie, BloomFilter
 from detection.threat_detector import StatefulPacketInspector, VulnerabilityScanner, EWMADetector
 from detection.intrusion_detector import IntrusionDetector, IntruderResponse, ActionBenchmark
 
-from response.lts_engine import LabeledTransitionSystem, PolicyEngine
+from response.lts_engine import (
+    LabeledTransitionSystem,
+    PolicyEngine,
+    create_security_policies,
+)
 
 from kernel.formal_verification import FormalVerifier, HoareTriple, StateSpace
 
 from deployment.security import ImmutableAuditLog, SBOMGenerator, IntegrityVerifier
+from detection.red_team import RedTeamExercise, RedTeamCredential
 
 
 class OverlayCyberTech:
@@ -51,7 +56,7 @@ class OverlayCyberTech:
         
         # Initialize response engine
         self.lts_engine = LabeledTransitionSystem()
-        self.policy_engine = PolicyEngine()
+        self.policy_engine = create_security_policies()
         
         # Initialize deployment security
         self.audit_log = ImmutableAuditLog()
@@ -60,6 +65,13 @@ class OverlayCyberTech:
         
         # Initialize system cleaner
         self.system_cleaner = None  # Lazy initialization
+        
+        # Red team orchestrator
+        self.red_team = RedTeamExercise(
+            intrusion_detector=self.intrusion_detector,
+            vulnerability_scanner=VulnerabilityScanner(),
+            policy_engine=self.policy_engine,
+        )
         
     def get_system_status(self) -> Dict[str, Any]:
         """Get comprehensive system status."""
@@ -242,6 +254,22 @@ class OverlayCyberTech:
         print(f"  → Free: {usage['free_gb']:.2f} GB")
         
         return usage
+    
+    def run_red_team_assessment(
+        self,
+        credentials: RedTeamCredential,
+        open_ports: Optional[List[int]] = None,
+        banners: Optional[Dict[int, str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute an authenticated red team assessment with automated safety controls.
+        """
+        print("🛡️ Running authenticated red team assessment...")
+        return self.red_team.run_assessment(
+            credentials=credentials,
+            open_ports=open_ports,
+            banners=banners,
+        )
     
     def generate_security_report(self, output_file: Optional[str] = None) -> str:
         """
