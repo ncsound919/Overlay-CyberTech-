@@ -1,17 +1,17 @@
-# Circulatory Informatics: Event‑Driven Architecture Outline
+# Circulatory Informatics: Event-Driven Architecture Outline
 
-Upgraded, implementation‑ready coding outline for the nine “organ” systems, oriented around an event‑driven, API‑first microservices architecture with a secure data fabric.
+Upgraded, implementation-ready coding outline for the nine “organ” systems, oriented around an event-driven, API-first microservices architecture with a secure data fabric.
 
 ## 1. Circulatory System: Secure Event Fabric (Infrastructure Layer)
 - **Pattern:** EDA with Pub/Sub broker (Kafka, NATS, or RabbitMQ).  
 - **Event contracts & schema registry:** Versioned Avro/JSON for `User`, `Asset`, `Session`, `Alert`, `Incident`, `PolicyViolation` enforced via registry.  
-- **Stream processing:** Stateless routing/filtering/fan‑out; stateful windows/aggregations (e.g., failed‑login counters, moving averages).  
-- **Security controls:** mTLS + OAuth2/JWT for producers/consumers, topic ACLs, encrypted topics and KMS‑managed credentials.
+- **Stream processing:** Stateless routing/filtering/fan-out; stateful windows/aggregations (e.g., failed-login counters, moving averages).  
+- **Security controls:** mTLS + OAuth2/JWT for producers/consumers, topic ACLs, encrypted topics and KMS-managed credentials.
 
 ## 2. Nervous System: Analytics & Decision Engine
 - **Pattern:** CEP engine + AI inference services.  
 - **Correlation & detection:** Deterministic rules (Flink/Esper) + ML anomaly detection over behavioral baselines.  
-- **Decision orchestration:** Risk scoring, policy‑aware decisions (consult Skeletal) emitting `ResponseCommand` events (`ISOLATE_HOST`, `REVOKE_TOKEN`).  
+- **Decision orchestration:** Risk scoring, policy-aware decisions (consult Skeletal) emitting `ResponseCommand` events (`ISOLATE_HOST`, `REVOKE_TOKEN`).  
 - **Medulla dashboard backend:** Aggregates vitals, exposes query/report/playbook APIs.
 
 ## 3. Immune System: Threat Intelligence & Response Logic
@@ -20,41 +20,41 @@ Upgraded, implementation‑ready coding outline for the nine “organ” systems
 - **Learned immunity store:** Resolved incidents/campaigns for reusable antibody patterns.  
 - **Response strategy generator:** Maps context → playbooks; emits `PlaybookRequest` events for Muscular execution.
 
-## 4. Skeletal System: Policy‑as‑Code & Governance
+## 4. Skeletal System: Policy-as-Code & Governance
 - **Pattern:** Central OPA engine + GitOps.  
 - **Baseline definitions:** Rego/YAML/JSON for access, segmentation, hardening, allowed behaviors.  
 - **Admission/authorization hooks:** OPA sidecars/webhooks to block misconfig before prod.  
-- **Drift/compliance:** Scheduled + event‑driven checks vs. desired state; emit `PolicyViolation` events to Nervous/Lymphatic.
+- **Drift/compliance:** Scheduled + event-driven checks vs. desired state; emit `PolicyViolation` events to Nervous/Lymphatic.
 
 ## 5. Muscular System: Effectors & Actuators (Execution Layer)
-- **Pattern:** Orchestration workers + API abstraction (SOAR‑like).  
+- **Pattern:** Orchestration workers + API abstraction (SOAR-like).  
 - **Unified action abstractions:** `isolate_endpoint`, `disable_account`, `block_ip`, `rotate_secret` → vendor adapters.  
 - **Idempotent, audited execution:** Idempotency keys, logs, retries/backoff/circuit breakers.  
-- **Safety & approvals:** Human‑in‑loop for high‑impact actions.
+- **Safety & approvals:** Human-in-loop for high-impact actions.
 
 ## 6. Lymphatic System: Forensics, Containment & Recovery
-- **Pattern:** Event‑driven IR workflows + batch for heavy forensics.  
+- **Pattern:** Event-driven IR workflows + batch for heavy forensics.  
 - **Triggered collection:** On `IncidentOpened`/`HighSeverityAlert` capture memory, logs, process trees, disk snapshots.  
 - **Containment management:** Coordinate quarantine VLANs/sandboxes with Muscular/Respiratory.  
 - **Recovery & hygiene:** Restore from golden images; purge artifacts; feed fixes back to detections/playbooks.
 
 ## 7. Respiratory System: Network & Access Filter
 - **Pattern:** L7 gateway/proxy + NDR.  
-- **Ingress/egress control:** Policy‑driven allow/deny, TLS inspection where legal, API gateway for service calls.  
+- **Ingress/egress control:** Policy-driven allow/deny, TLS inspection where legal, API gateway for service calls.  
 - **Flow/behavior analytics:** NetFlow/IPFIX + mirrored traffic for exfil, beaconing, lateral movement.  
 - **Dynamic guardrails:** Block/allow lists updated in real time from Immune and Nervous systems.
 
 ## 8. Digestive System: ETL, Normalization & Enrichment
 - **Pattern:** Streaming ETL + enrichment microservices.  
 - **Parsing/normalization:** Pluggable parsers → canonical event schema.  
-- **Contextual enrichment:** CMDB/IAM/GeoIP/vuln/business‑criticality lookups.  
-- **Quality/error channels:** Dead‑letter queues + structured error events to improve parsers and data quality.
+- **Contextual enrichment:** CMDB/IAM/GeoIP/vuln/business-criticality lookups.  
+- **Quality/error channels:** Dead-letter queues + structured error events to improve parsers and data quality.
 
-## 9. Endocrine System: Long‑Loop Orchestration & Adaptation
-- **Pattern:** State machine + control‑loop services (SRE‑inspired).  
+## 9. Endocrine System: Long-Loop Orchestration & Adaptation
+- **Pattern:** State machine + control-loop services (SRE-inspired).  
 - **Global posture controller:** Maintains posture state (NORMAL/ELEVATED/CRITICAL) from incidents, threat landscape, business context; adjusts logging/detection thresholds/automation aggressiveness.  
 - **Patch/config governance:** Integrates vuln remediation + config managers; emits `PatchRequired`/`ConfigRemediation` events and tracks closure.  
-- **Autonomic feedback loops:** Use MTTR/false‑positive rates/incident patterns to retune rules, thresholds, playbooks over time.
+- **Autonomic feedback loops:** Use MTTR/false-positive rates/incident patterns to retune rules, thresholds, playbooks over time.
 
 ## References
 [1] https://www.trendmicro.com/en_us/research/22/h/event-driven-architecture-security.html  
