@@ -6,7 +6,7 @@ Upgraded, implementation-ready coding outline for the nine “organ” systems, 
 - **Pattern:** EDA with Pub/Sub broker (Kafka, NATS, or RabbitMQ).
 - **Event contracts & schema registry:** Versioned Avro/JSON for `User`, `Asset`, `Session`, `Alert`, `Incident`, `PolicyViolation` enforced via registry.
 - **Stream processing:** Stateless routing/filtering/fan-out; stateful windows/aggregations (e.g., failed-login counters, moving averages).
-- **Security controls:** mTLS + OAuth2/JWT for producers/consumers, topic ACLs, encrypted topics and KMS-managed credentials.
+- **Security controls:** mTLS/TLS 1.2+ + OAuth2/JWT for producers/consumers (encryption in transit), broker-enforced topic ACLs, broker-level topic encryption at rest using KMS-managed CMKs with automated rotation, optional client-side/envelope encryption for highly sensitive streams, and KMS-managed credentials/secrets (broker, schema registry, service accounts) with least-privilege IAM.
 
 ## 2. Nervous System: Analytics & Decision Engine
 - **Pattern:** CEP engine + AI inference services.
