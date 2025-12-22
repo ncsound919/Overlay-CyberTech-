@@ -208,7 +208,7 @@
         "pseudocode": "result = 0; for i in 0..len { result |= hash1[i] ^ hash2[i] }; return result == 0",
         "languages": {
           "python": "secrets.compare_digest(hash1, hash2)",
-          "javascript": "crypto.subtle.timingSafeEqual(buffer1, buffer2)",
+          "javascript": "// No native browser API - implement custom: let result = 0; for(let i = 0; i < hash1.length; i++) { result |= hash1[i] ^ hash2[i]; } return result === 0;",
           "nodejs": "crypto.timingSafeEqual(buffer1, buffer2)"
         },
         "why": "XOR all bytes, return true only if all match. Time independent of where difference is."
