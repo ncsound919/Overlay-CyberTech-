@@ -126,11 +126,10 @@ class OverlayCyberTech:
             'intruders': [
                 {
                     'id': intruder.intruder_id,
-                    'type': intruder.threat_type,
+                    'types': intruder.threat_types,
                     'level': intruder.threat_level,
-                    'confidence': intruder.confidence_score,
-                    'first_seen': intruder.first_seen,
-                    'last_seen': intruder.last_seen
+                    'first_detected': intruder.first_detected,
+                    'last_activity': intruder.last_activity
                 }
                 for intruder in intruders
             ] if detailed else []
@@ -157,7 +156,8 @@ class OverlayCyberTech:
         for intruder in intruders:
             action = {
                 'intruder_id': intruder.intruder_id,
-                'threat_type': intruder.threat_type,
+                'threat_types': intruder.threat_types,
+                'threat_level': intruder.threat_level,
                 'actions': []
             }
             
