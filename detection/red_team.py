@@ -8,6 +8,7 @@ Provides deterministic, policy-driven red team exercises that:
 """
 
 import secrets
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
@@ -54,6 +55,7 @@ class RedTeamExercise:
         self._intrusion_detector = intrusion_detector or IntrusionDetector()
         self._vulnerability_scanner = vulnerability_scanner or VulnerabilityScanner()
         self._policy_engine = policy_engine or create_security_policies()
+        self._token_lock = threading.Lock()
 
         if allowed_tokens:
             self._allowed_tokens: Set[str] = set(allowed_tokens)
@@ -67,6 +69,7 @@ class RedTeamExercise:
         """Validate red team credentials and scope."""
         now = time.time()
         token_valid = credentials.token in self._allowed_tokens
+        # Expiry is exclusive: credentials are valid up to but not including expires_at.
         is_expired = (
             credentials.expires_at is not None and credentials.expires_at < now
         )
@@ -95,9 +98,10 @@ class RedTeamExercise:
         cleared from memory after the first access to reduce exposure risk.
         Callers must treat the returned value as secret and avoid logging it.
         """
-        token = self._generated_token
-        self._generated_token = None
-        return token
+        with self._token_lock:
+            token = self._generated_token
+            self._generated_token = None
+            return token
     def run_assessment(
         self,
         credentials: RedTeamCredential,

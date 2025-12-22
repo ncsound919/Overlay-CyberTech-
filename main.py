@@ -282,7 +282,9 @@ class OverlayCyberTech:
         """
         print("🛡️ Running authenticated red team assessment...")
         sanitized_failed_logins = failed_logins if failed_logins is not None else 0
-        sanitized_time_window = time_window_minutes if time_window_minutes is not None else 15
+        sanitized_time_window = (
+            time_window_minutes if time_window_minutes is not None else 15
+        )
         sanitized_new_location = new_location if new_location is not None else False
         sanitized_data_transfer = data_transfer_mb if data_transfer_mb is not None else 0.0
         sanitized_destination_external = (
