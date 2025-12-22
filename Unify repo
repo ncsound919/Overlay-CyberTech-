@@ -1,0 +1,3016 @@
+#!/usr/bin/env node
+
+/**
+ * Repository Unification Script for Cybersecurity Platform
+ * 
+ * This script analyzes, consolidates, and restructures a fragmented codebase
+ * into a unified, standardized monorepo structure with security best practices.
+ * 
+ * Usage: node unify-repo.js [options]
+ * Options:
+ *   --dry-run          Show what would be done without making changes
+ *   --config <path>    Path to custom config file (default: unify-config.json)
+ *   --skip-backup      Skip backup creation (not recommended)
+ *   --force            Force operations without prompts
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync, exec } = require('child_process');
+const crypto = require('crypto');
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const DEFAULT_CONFIG = {
+  projectName: 'cybersecurity-platform',
+  monorepoTool: 'turborepo', // turborepo | nx | lerna | none
+  preserveGitHistory: true,
+  mergeDuplicates: true,
+  namingConvention: 'kebab-case',
+  targetStructure: 'microservices',
+  excludePatterns: [
+    'node_modules', '.git', 'dist', 'build', 'coverage', 
+    '.env', '.env.*', '*.log', '.DS_Store', 'tmp'
+  ],
+  securityScanning: true,
+  generateDocumentation: true,
+  targetDirectories: {
+    services: ['antivirus-scanner', 'benchmark-runner', 'discord-bot', 'api-gateway', 'dashboard'],
+    shared: ['utils', 'types', 'constants', 'config', 'db', 'security'],
+    infrastructure: ['terraform', 'kubernetes', 'docker', 'scripts'],
+    docs: ['architecture', 'api', 'runbooks', 'compliance'],
+    tests: ['e2e', 'integration', 'performance']
+  }
+};
+
+// ============================================================================
+// UTILITIES
+// ============================================================================
+
+class Logger {
+  static info(msg) { console.log(`ℹ️  ${msg}`); }
+  static success(msg) { console.log(`✅ ${msg}`); }
+  static warn(msg) { console.log(`⚠️  ${msg}`); }
+  static error(msg) { console.error(`❌ ${msg}`); }
+  static section(msg) { console.log(`\n${'='.repeat(60)}\n${msg}\n${'='.repeat(60)}`); }
+}
+
+function execCommand(cmd, options = {}) {
+  try {
+    const result = execSync(cmd, { 
+      encoding: 'utf8', 
+      stdio: options.silent ? 'pipe' : 'inherit',
+      ...options 
+    });
+    return { success: true, output: result };
+  } catch (err) {
+    return { success: false, error: err.message, output: err.stdout };
+  }
+}
+
+function fileHash(filePath) {
+  const content = fs.readFileSync(filePath);
+  return crypto.createHash('sha256').update(content).digest('hex');
+}
+
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function walkDir(dir, callback, exclude = []) {
+  if (!fs.existsSync(dir)) return;
+  
+  const files = fs.readdirSync(dir);
+  files.forEach(file => {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+    
+    // Check if path matches exclude patterns
+    const shouldExclude = exclude.some(pattern => {
+      if (pattern.includes('*')) {
+        const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+        return regex.test(filePath);
+      }
+      return filePath.includes(pattern);
+    });
+    
+    if (shouldExclude) return;
+    
+    if (stat.isDirectory()) {
+      walkDir(filePath, callback, exclude);
+    } else {
+      callback(filePath, stat);
+    }
+  });
+}
+
+// ============================================================================
+// PHASE 1: ANALYSIS
+// ============================================================================
+
+class RepositoryAnalyzer {
+  constructor(config) {
+    this.config = config;
+    this.analysis = {
+      files: [],
+      duplicates: [],
+      dependencies: {},
+      structure: {},
+      issues: [],
+      recommendations: []
+    };
+  }
+
+  async analyze() {
+    Logger.section('PHASE 1: REPOSITORY ANALYSIS');
+    
+    this.scanFiles();
+    this.detectDuplicates();
+    this.analyzeDependencies();
+    this.generateRecommendations();
+    this.saveReport();
+    
+    return this.analysis;
+  }
+
+  scanFiles() {
+    Logger.info('Scanning repository files...');
+    const rootDir = process.cwd();
+    
+    walkDir(rootDir, (filePath, stat) => {
+      const ext = path.extname(filePath);
+      const relativePath = path.relative(rootDir, filePath);
+      
+      this.analysis.files.push({
+        path: relativePath,
+        fullPath: filePath,
+        size: stat.size,
+        extension: ext,
+        hash: fileHash(filePath),
+        modified: stat.mtime
+      });
+    }, this.config.excludePatterns);
+    
+    Logger.success(`Found ${this.analysis.files.length} files`);
+  }
+
+  detectDuplicates() {
+    Logger.info('Detecting duplicate files...');
+    const hashMap = {};
+    
+    this.analysis.files.forEach(file => {
+      if (!hashMap[file.hash]) {
+        hashMap[file.hash] = [];
+      }
+      hashMap[file.hash].push(file);
+    });
+    
+    Object.values(hashMap).forEach(files => {
+      if (files.length > 1) {
+        this.analysis.duplicates.push({
+          hash: files[0].hash,
+          count: files.length,
+          files: files.map(f => f.path),
+          totalSize: files.reduce((sum, f) => sum + f.size, 0)
+        });
+      }
+    });
+    
+    const duplicateCount = this.analysis.duplicates.reduce((sum, d) => sum + d.count - 1, 0);
+    const wastedSpace = this.analysis.duplicates.reduce((sum, d) => sum + (d.totalSize * (d.count - 1)), 0);
+    
+    Logger.success(`Found ${duplicateCount} duplicate files (${(wastedSpace / 1024 / 1024).toFixed(2)} MB wasted)`);
+  }
+
+  analyzeDependencies() {
+    Logger.info('Analyzing dependencies...');
+    
+    // Find all package.json files
+    const packageFiles = this.analysis.files.filter(f => f.path.endsWith('package.json'));
+    
+    packageFiles.forEach(pkgFile => {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgFile.fullPath, 'utf8'));
+        const allDeps = {
+          ...pkg.dependencies,
+          ...pkg.devDependencies,
+          ...pkg.peerDependencies
+        };
+        
+        Object.entries(allDeps).forEach(([name, version]) => {
+          if (!this.analysis.dependencies[name]) {
+            this.analysis.dependencies[name] = [];
+          }
+          this.analysis.dependencies[name].push({
+            version,
+            location: pkgFile.path
+          });
+        });
+      } catch (err) {
+        Logger.warn(`Could not parse ${pkgFile.path}`);
+      }
+    });
+    
+    // Find version conflicts
+    const conflicts = Object.entries(this.analysis.dependencies)
+      .filter(([name, locations]) => {
+        const versions = [...new Set(locations.map(l => l.version))];
+        return versions.length > 1;
+      });
+    
+    if (conflicts.length > 0) {
+      Logger.warn(`Found ${conflicts.length} dependency version conflicts`);
+      conflicts.forEach(([name, locations]) => {
+        this.analysis.issues.push({
+          type: 'version_conflict',
+          package: name,
+          versions: [...new Set(locations.map(l => l.version))],
+          locations: locations.map(l => l.location)
+        });
+      });
+    }
+  }
+
+  generateRecommendations() {
+    Logger.info('Generating recommendations...');
+    
+    // Recommend structure based on file types
+    const jsFiles = this.analysis.files.filter(f => /\.(js|ts|jsx|tsx)$/.test(f.path));
+    const testFiles = jsFiles.filter(f => /\.(test|spec)\.(js|ts|jsx|tsx)$/.test(f.path));
+    const configFiles = this.analysis.files.filter(f => /\.(json|ya?ml|toml|ini)$/.test(f.path));
+    
+    this.analysis.recommendations.push({
+      category: 'Structure',
+      priority: 'high',
+      suggestion: `Organize ${jsFiles.length} source files into ${this.config.targetStructure} architecture`
+    });
+    
+    if (this.analysis.duplicates.length > 10) {
+      this.analysis.recommendations.push({
+        category: 'Optimization',
+        priority: 'high',
+        suggestion: `Remove ${this.analysis.duplicates.length} duplicate files to save space and reduce maintenance`
+      });
+    }
+    
+    if (this.analysis.issues.length > 0) {
+      this.analysis.recommendations.push({
+        category: 'Dependencies',
+        priority: 'critical',
+        suggestion: `Resolve ${this.analysis.issues.length} dependency conflicts to ensure consistent behavior`
+      });
+    }
+    
+    // Check for security vulnerabilities
+    if (this.config.securityScanning) {
+      const auditResult = execCommand('npm audit --json', { silent: true });
+      if (auditResult.success) {
+        try {
+          const audit = JSON.parse(auditResult.output);
+          const vulnCount = audit.metadata?.vulnerabilities?.total || 0;
+          if (vulnCount > 0) {
+            this.analysis.recommendations.push({
+              category: 'Security',
+              priority: 'critical',
+              suggestion: `Address ${vulnCount} security vulnerabilities found in dependencies`
+            });
+          }
+        } catch (err) {
+          Logger.warn('Could not parse audit results');
+        }
+      }
+    }
+  }
+
+  saveReport() {
+    const reportPath = path.join(process.cwd(), 'analysis-report.json');
+    fs.writeFileSync(reportPath, JSON.stringify(this.analysis, null, 2));
+    Logger.success(`Analysis report saved to ${reportPath}`);
+    
+    // Generate markdown summary
+    const mdPath = path.join(process.cwd(), 'ANALYSIS-SUMMARY.md');
+    const md = this.generateMarkdownReport();
+    fs.writeFileSync(mdPath, md);
+    Logger.success(`Summary saved to ${mdPath}`);
+  }
+
+  generateMarkdownReport() {
+    return `# Repository Analysis Report
+
+Generated: ${new Date().toISOString()}
+
+## Overview
+
+- **Total Files**: ${this.analysis.files.length}
+- **Duplicate Files**: ${this.analysis.duplicates.length}
+- **Unique Dependencies**: ${Object.keys(this.analysis.dependencies).length}
+- **Issues Found**: ${this.analysis.issues.length}
+
+## Duplicates
+
+${this.analysis.duplicates.slice(0, 10).map(d => `
+### ${d.files[0]}
+- Duplicates: ${d.count}
+- Total Size: ${(d.totalSize / 1024).toFixed(2)} KB
+- Locations:
+${d.files.map(f => `  - ${f}`).join('\n')}
+`).join('\n')}
+
+${this.analysis.duplicates.length > 10 ? `\n... and ${this.analysis.duplicates.length - 10} more duplicates\n` : ''}
+
+## Issues
+
+${this.analysis.issues.map(i => `
+### ${i.type}: ${i.package || 'Unknown'}
+${JSON.stringify(i, null, 2)}
+`).join('\n')}
+
+## Recommendations
+
+${this.analysis.recommendations.map((r, i) => `
+${i + 1}. **[${r.priority.toUpperCase()}]** ${r.category}: ${r.suggestion}
+`).join('\n')}
+
+## Next Steps
+
+1. Review this report
+2. Run \`node unify-repo.js\` to apply automated fixes
+3. Manually review and test changes
+4. Commit unified structure
+`;
+  }
+}
+
+// ============================================================================
+// PHASE 2: BACKUP
+// ============================================================================
+
+class BackupManager {
+  constructor(config) {
+    this.config = config;
+  }
+
+  async createBackup() {
+    Logger.section('PHASE 2: CREATING BACKUP');
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const branchName = `backup-${timestamp}`;
+    const tagName = `pre-unification-${timestamp}`;
+    
+    // Create git branch
+    Logger.info(`Creating backup branch: ${branchName}`);
+    const branchResult = execCommand(`git branch ${branchName}`);
+    if (branchResult.success) {
+      Logger.success('Backup branch created');
+    } else {
+      Logger.error('Failed to create backup branch');
+    }
+    
+    // Create git tag
+    Logger.info(`Creating tag: ${tagName}`);
+    const tagResult = execCommand(`git tag ${tagName}`);
+    if (tagResult.success) {
+      Logger.success('Tag created');
+    }
+    
+    // Create tarball backup
+    Logger.info('Creating tarball backup...');
+    const backupPath = path.join('..', `repo-backup-${timestamp}.tar.gz`);
+    const tarResult = execCommand(`tar -czf ${backupPath} --exclude=node_modules --exclude=.git --exclude=dist .`);
+    
+    if (tarResult.success) {
+      Logger.success(`Backup created: ${backupPath}`);
+    }
+    
+    return { branchName, tagName, backupPath };
+  }
+}
+
+// ============================================================================
+// PHASE 3: RESTRUCTURE
+// ============================================================================
+
+class RepositoryRestructurer {
+  constructor(config, analysis) {
+    this.config = config;
+    this.analysis = analysis;
+    this.movements = [];
+  }
+
+  async restructure(dryRun = false) {
+    Logger.section('PHASE 3: RESTRUCTURING REPOSITORY');
+    
+    this.createTargetStructure(dryRun);
+    this.categorizeFiles();
+    this.moveFiles(dryRun);
+    
+    if (!dryRun) {
+      this.saveMovementLog();
+    }
+    
+    return this.movements;
+  }
+
+  createTargetStructure(dryRun) {
+    Logger.info('Creating target directory structure...');
+    
+    const dirs = [
+      '.github/workflows',
+      '.github/ISSUE_TEMPLATE',
+      'docs/architecture',
+      'docs/api',
+      'docs/runbooks',
+      'docs/compliance',
+      'infrastructure/terraform',
+      'infrastructure/kubernetes',
+      'infrastructure/docker',
+      'scripts',
+      'tests/e2e',
+      'tests/integration',
+      'shared/utils',
+      'shared/types',
+      'shared/config',
+      'shared/security'
+    ];
+    
+    // Add service directories
+    Object.values(this.config.targetDirectories.services).forEach(service => {
+      dirs.push(`services/${service}/src`);
+      dirs.push(`services/${service}/tests`);
+    });
+    
+    dirs.forEach(dir => {
+      if (!dryRun) {
+        ensureDir(dir);
+      }
+      Logger.info(`${dryRun ? '[DRY RUN] Would create' : 'Created'}: ${dir}`);
+    });
+  }
+
+  categorizeFiles() {
+    Logger.info('Categorizing files...');
+    
+    this.analysis.files.forEach(file => {
+      const category = this.determineCategory(file.path);
+      this.movements.push({
+        from: file.path,
+        to: this.determineTarget(file.path, category),
+        category,
+        size: file.size
+      });
+    });
+  }
+
+  determineCategory(filePath) {
+    const lower = filePath.toLowerCase();
+    
+    // GitHub workflows
+    if (lower.includes('.github') || lower.includes('workflow')) return 'github';
+    
+    // Documentation
+    if (lower.includes('readme') || lower.includes('doc') || /\.(md|txt)$/.test(lower)) return 'docs';
+    
+    // Infrastructure
+    if (lower.includes('terraform') || lower.includes('docker') || lower.includes('k8s') || 
+        lower.includes('kubernetes') || /\.(tf|dockerfile)$/.test(lower)) return 'infrastructure';
+    
+    // Tests
+    if (/\.(test|spec)\.(js|ts|jsx|tsx)$/.test(lower) || lower.includes('__tests__')) return 'tests';
+    
+    // Configuration
+    if (/\.(json|ya?ml|toml|ini|env)$/.test(lower) && !lower.includes('package.json')) return 'config';
+    
+    // Detect service by path keywords
+    const services = ['antivirus', 'scanner', 'benchmark', 'discord', 'bot', 'api', 'gateway', 'dashboard'];
+    for (const service of services) {
+      if (lower.includes(service)) return `service:${service}`;
+    }
+    
+    // Shared utilities
+    if (lower.includes('util') || lower.includes('helper') || lower.includes('common')) return 'shared';
+    
+    return 'unknown';
+  }
+
+  determineTarget(filePath, category) {
+    const fileName = path.basename(filePath);
+    const ext = path.extname(filePath);
+    
+    switch (category) {
+      case 'github':
+        return path.join('.github', filePath.split('.github/')[1] || fileName);
+      
+      case 'docs':
+        if (fileName.toLowerCase() === 'readme.md') return 'README.md';
+        return path.join('docs', fileName);
+      
+      case 'infrastructure':
+        if (filePath.includes('terraform')) return path.join('infrastructure/terraform', fileName);
+        if (filePath.includes('docker')) return path.join('infrastructure/docker', fileName);
+        if (filePath.includes('k8s') || filePath.includes('kubernetes')) {
+          return path.join('infrastructure/kubernetes', fileName);
+        }
+        return path.join('infrastructure', fileName);
+      
+      case 'tests':
+        if (filePath.includes('e2e')) return path.join('tests/e2e', fileName);
+        if (filePath.includes('integration')) return path.join('tests/integration', fileName);
+        return path.join('tests', fileName);
+      
+      case 'config':
+        return path.join('config', fileName);
+      
+      case 'shared':
+        return path.join('shared/utils', fileName);
+      
+      default:
+        if (category.startsWith('service:')) {
+          const serviceName = category.split(':')[1];
+          const serviceDir = `services/${serviceName}`;
+          if (/\.(test|spec)\.(js|ts)$/.test(fileName)) {
+            return path.join(serviceDir, 'tests', fileName);
+          }
+          return path.join(serviceDir, 'src', fileName);
+        }
+        return filePath; // Keep in place if unknown
+    }
+  }
+
+  moveFiles(dryRun) {
+    Logger.info(`${dryRun ? '[DRY RUN] Simulating' : 'Moving'} files...`);
+    
+    let moved = 0;
+    let skipped = 0;
+    
+    this.movements.forEach(movement => {
+      if (movement.from === movement.to) {
+        skipped++;
+        return;
+      }
+      
+      if (dryRun) {
+        Logger.info(`[DRY RUN] Would move: ${movement.from} → ${movement.to}`);
+      } else {
+        try {
+          ensureDir(path.dirname(movement.to));
+          
+          if (this.config.preserveGitHistory) {
+            execCommand(`git mv "${movement.from}" "${movement.to}"`, { silent: true });
+          } else {
+            fs.renameSync(movement.from, movement.to);
+          }
+          
+          moved++;
+        } catch (err) {
+          Logger.warn(`Could not move ${movement.from}: ${err.message}`);
+        }
+      }
+    });
+    
+    Logger.success(`${dryRun ? 'Would move' : 'Moved'} ${moved} files, skipped ${skipped} files`);
+  }
+
+  saveMovementLog() {
+    const logPath = path.join(process.cwd(), 'file-movements.json');
+    fs.writeFileSync(logPath, JSON.stringify(this.movements, null, 2));
+    Logger.success(`Movement log saved to ${logPath}`);
+  }
+}
+
+// ============================================================================
+// PHASE 4: CONSOLIDATION
+// ============================================================================
+
+class ConfigConsolidator {
+  constructor(config, analysis) {
+    this.config = config;
+    this.analysis = analysis;
+  }
+
+  async consolidate(dryRun = false) {
+    Logger.section('PHASE 4: CONSOLIDATING CONFIGURATIONS');
+    
+    await this.consolidatePackageJson(dryRun);
+    await this.consolidateESLint(dryRun);
+    await this.consolidateTsConfig(dryRun);
+    await this.removeDuplicates(dryRun);
+  }
+
+  async consolidatePackageJson(dryRun) {
+    Logger.info('Consolidating package.json files...');
+    
+    const packageFiles = this.analysis.files.filter(f => f.path.endsWith('package.json'));
+    
+    if (packageFiles.length === 0) {
+      Logger.warn('No package.json files found');
+      return;
+    }
+    
+    const consolidated = {
+      name: this.config.projectName,
+      version: '1.0.0',
+      private: true,
+      workspaces: ['services/*', 'shared/*'],
+      scripts: {},
+      dependencies: {},
+      devDependencies: {}
+    };
+    
+    // Merge all package.json files
+    packageFiles.forEach(pkgFile => {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgFile.fullPath, 'utf8'));
+        
+        // Merge scripts
+        Object.assign(consolidated.scripts, pkg.scripts);
+        
+        // Merge dependencies (use highest version)
+        this.mergeDependencies(consolidated.dependencies, pkg.dependencies);
+        this.mergeDependencies(consolidated.devDependencies, pkg.devDependencies);
+      } catch (err) {
+        Logger.warn(`Could not parse ${pkgFile.path}`);
+      }
+    });
+    
+    if (!dryRun) {
+      fs.writeFileSync('package.json', JSON.stringify(consolidated, null, 2));
+      Logger.success('Consolidated package.json created');
+    } else {
+      Logger.info('[DRY RUN] Would create consolidated package.json');
+    }
+  }
+
+  mergeDependencies(target, source) {
+    if (!source) return;
+    
+    Object.entries(source).forEach(([name, version]) => {
+      if (!target[name]) {
+        target[name] = version;
+      } else {
+        // Keep highest version (simplified comparison)
+        const currentVer = target[name].replace(/[^0-9.]/g, '');
+        const newVer = version.replace(/[^0-9.]/g, '');
+        if (newVer > currentVer) {
+          target[name] = version;
+        }
+      }
+    });
+  }
+
+  async consolidateESLint(dryRun) {
+    Logger.info('Consolidating ESLint configuration...');
+    
+    const eslintConfig = {
+      root: true,
+      extends: [
+        'eslint:recommended',
+        'plugin:@typescript-eslint/recommended',
+        'plugin:security/recommended'
+      ],
+      plugins: ['@typescript-eslint', 'security'],
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module'
+      },
+      rules: {
+        'no-console': 'warn',
+        'no-eval': 'error',
+        'no-implied-eval': 'error',
+        'security/detect-eval-with-expression': 'error',
+        'security/detect-non-literal-regexp': 'error',
+        'security/detect-unsafe-regex': 'error'
+      }
+    };
+    
+    if (!dryRun) {
+      fs.writeFileSync('.eslintrc.json', JSON.stringify(eslintConfig, null, 2));
+      Logger.success('ESLint configuration created');
+    }
+  }
+
+  async consolidateTsConfig(dryRun) {
+    Logger.info('Consolidating TypeScript configuration...');
+    
+    const tsConfig = {
+      compilerOptions: {
+        target: 'ES2022',
+        module: 'commonjs',
+        lib: ['ES2022'],
+        strict: true,
+        esModuleInterop: true,
+        skipLibCheck: true,
+        forceConsistentCasingInFileNames: true,
+        resolveJsonModule: true,
+        declaration: true,
+        outDir: './dist',
+        rootDir: './src',
+        baseUrl: '.',
+        paths: {
+          '@shared/*': ['shared/*'],
+          '@services/*': ['services/*']
+        }
+      },
+      include: ['services/**/*', 'shared/**/*'],
+      exclude: ['node_modules', 'dist', '**/*.test.ts']
+    };
+    
+    if (!dryRun) {
+      fs.writeFileSync('tsconfig.json', JSON.stringify(tsConfig, null, 2));
+      Logger.success('TypeScript configuration created');
+    }
+  }
+
+  async removeDuplicates(dryRun) {
+
+#!/usr/bin/env node
+
+/**
+ * Repository Unification Script for Cybersecurity Platform
+ * 
+ * This script analyzes, consolidates, and restructures a fragmented codebase
+ * into a unified, standardized monorepo structure with security best practices.
+ * 
+ * Usage: node unify-repo.js [options]
+ * Options:
+ *   --dry-run          Show what would be done without making changes
+ *   --config <path>    Path to custom config file (default: unify-config.json)
+ *   --skip-backup      Skip backup creation (not recommended)
+ *   --force            Force operations without prompts
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync, exec } = require('child_process');
+const crypto = require('crypto');
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const DEFAULT_CONFIG = {
+  projectName: 'cybersecurity-platform',
+  monorepoTool: 'turborepo', // turborepo | nx | lerna | none
+  preserveGitHistory: true,
+  mergeDuplicates: true,
+  namingConvention: 'kebab-case',
+  targetStructure: 'microservices',
+  excludePatterns: [
+    'node_modules', '.git', 'dist', 'build', 'coverage', 
+    '.env', '.env.*', '*.log', '.DS_Store', 'tmp'
+  ],
+  securityScanning: true,
+  generateDocumentation: true,
+  targetDirectories: {
+    services: ['antivirus-scanner', 'benchmark-runner', 'discord-bot', 'api-gateway', 'dashboard'],
+    shared: ['utils', 'types', 'constants', 'config', 'db', 'security'],
+    infrastructure: ['terraform', 'kubernetes', 'docker', 'scripts'],
+    docs: ['architecture', 'api', 'runbooks', 'compliance'],
+    tests: ['e2e', 'integration', 'performance']
+  }
+};
+
+// ============================================================================
+// UTILITIES
+// ============================================================================
+
+class Logger {
+  static info(msg) { console.log(`ℹ️  ${msg}`); }
+  static success(msg) { console.log(`✅ ${msg}`); }
+  static warn(msg) { console.log(`⚠️  ${msg}`); }
+  static error(msg) { console.error(`❌ ${msg}`); }
+  static section(msg) { console.log(`\n${'='.repeat(60)}\n${msg}\n${'='.repeat(60)}`); }
+}
+
+function execCommand(cmd, options = {}) {
+  try {
+    const result = execSync(cmd, { 
+      encoding: 'utf8', 
+      stdio: options.silent ? 'pipe' : 'inherit',
+      ...options 
+    });
+    return { success: true, output: result };
+  } catch (err) {
+    return { success: false, error: err.message, output: err.stdout };
+  }
+}
+
+function fileHash(filePath) {
+  const content = fs.readFileSync(filePath);
+  return crypto.createHash('sha256').update(content).digest('hex');
+}
+
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function walkDir(dir, callback, exclude = []) {
+  if (!fs.existsSync(dir)) return;
+  
+  const files = fs.readdirSync(dir);
+  files.forEach(file => {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+    
+    // Check if path matches exclude patterns
+    const shouldExclude = exclude.some(pattern => {
+      if (pattern.includes('*')) {
+        const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+        return regex.test(filePath);
+      }
+      return filePath.includes(pattern);
+    });
+    
+    if (shouldExclude) return;
+    
+    if (stat.isDirectory()) {
+      walkDir(filePath, callback, exclude);
+    } else {
+      callback(filePath, stat);
+    }
+  });
+}
+
+// ============================================================================
+// PHASE 1: ANALYSIS
+// ============================================================================
+
+class RepositoryAnalyzer {
+  constructor(config) {
+    this.config = config;
+    this.analysis = {
+      files: [],
+      duplicates: [],
+      dependencies: {},
+      structure: {},
+      issues: [],
+      recommendations: []
+    };
+  }
+
+  async analyze() {
+    Logger.section('PHASE 1: REPOSITORY ANALYSIS');
+    
+    this.scanFiles();
+    this.detectDuplicates();
+    this.analyzeDependencies();
+    this.generateRecommendations();
+    this.saveReport();
+    
+    return this.analysis;
+  }
+
+  scanFiles() {
+    Logger.info('Scanning repository files...');
+    const rootDir = process.cwd();
+    
+    walkDir(rootDir, (filePath, stat) => {
+      const ext = path.extname(filePath);
+      const relativePath = path.relative(rootDir, filePath);
+      
+      this.analysis.files.push({
+        path: relativePath,
+        fullPath: filePath,
+        size: stat.size,
+        extension: ext,
+        hash: fileHash(filePath),
+        modified: stat.mtime
+      });
+    }, this.config.excludePatterns);
+    
+    Logger.success(`Found ${this.analysis.files.length} files`);
+  }
+
+  detectDuplicates() {
+    Logger.info('Detecting duplicate files...');
+    const hashMap = {};
+    
+    this.analysis.files.forEach(file => {
+      if (!hashMap[file.hash]) {
+        hashMap[file.hash] = [];
+      }
+      hashMap[file.hash].push(file);
+    });
+    
+    Object.values(hashMap).forEach(files => {
+      if (files.length > 1) {
+        this.analysis.duplicates.push({
+          hash: files[0].hash,
+          count: files.length,
+          files: files.map(f => f.path),
+          totalSize: files.reduce((sum, f) => sum + f.size, 0)
+        });
+      }
+    });
+    
+    const duplicateCount = this.analysis.duplicates.reduce((sum, d) => sum + d.count - 1, 0);
+    const wastedSpace = this.analysis.duplicates.reduce((sum, d) => sum + (d.totalSize * (d.count - 1)), 0);
+    
+    Logger.success(`Found ${duplicateCount} duplicate files (${(wastedSpace / 1024 / 1024).toFixed(2)} MB wasted)`);
+  }
+
+  analyzeDependencies() {
+    Logger.info('Analyzing dependencies...');
+    
+    // Find all package.json files
+    const packageFiles = this.analysis.files.filter(f => f.path.endsWith('package.json'));
+    
+    packageFiles.forEach(pkgFile => {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgFile.fullPath, 'utf8'));
+        const allDeps = {
+          ...pkg.dependencies,
+          ...pkg.devDependencies,
+          ...pkg.peerDependencies
+        };
+        
+        Object.entries(allDeps).forEach(([name, version]) => {
+          if (!this.analysis.dependencies[name]) {
+            this.analysis.dependencies[name] = [];
+          }
+          this.analysis.dependencies[name].push({
+            version,
+            location: pkgFile.path
+          });
+        });
+      } catch (err) {
+        Logger.warn(`Could not parse ${pkgFile.path}`);
+      }
+    });
+    
+    // Find version conflicts
+    const conflicts = Object.entries(this.analysis.dependencies)
+      .filter(([name, locations]) => {
+        const versions = [...new Set(locations.map(l => l.version))];
+        return versions.length > 1;
+      });
+    
+    if (conflicts.length > 0) {
+      Logger.warn(`Found ${conflicts.length} dependency version conflicts`);
+      conflicts.forEach(([name, locations]) => {
+        this.analysis.issues.push({
+          type: 'version_conflict',
+          package: name,
+          versions: [...new Set(locations.map(l => l.version))],
+          locations: locations.map(l => l.location)
+        });
+      });
+    }
+  }
+
+  generateRecommendations() {
+    Logger.info('Generating recommendations...');
+    
+    // Recommend structure based on file types
+    const jsFiles = this.analysis.files.filter(f => /\.(js|ts|jsx|tsx)$/.test(f.path));
+    const testFiles = jsFiles.filter(f => /\.(test|spec)\.(js|ts|jsx|tsx)$/.test(f.path));
+    const configFiles = this.analysis.files.filter(f => /\.(json|ya?ml|toml|ini)$/.test(f.path));
+    
+    this.analysis.recommendations.push({
+      category: 'Structure',
+      priority: 'high',
+      suggestion: `Organize ${jsFiles.length} source files into ${this.config.targetStructure} architecture`
+    });
+    
+    if (this.analysis.duplicates.length > 10) {
+      this.analysis.recommendations.push({
+        category: 'Optimization',
+        priority: 'high',
+        suggestion: `Remove ${this.analysis.duplicates.length} duplicate files to save space and reduce maintenance`
+      });
+    }
+    
+    if (this.analysis.issues.length > 0) {
+      this.analysis.recommendations.push({
+        category: 'Dependencies',
+        priority: 'critical',
+        suggestion: `Resolve ${this.analysis.issues.length} dependency conflicts to ensure consistent behavior`
+      });
+    }
+    
+    // Check for security vulnerabilities
+    if (this.config.securityScanning) {
+      const auditResult = execCommand('npm audit --json', { silent: true });
+      if (auditResult.success) {
+        try {
+          const audit = JSON.parse(auditResult.output);
+          const vulnCount = audit.metadata?.vulnerabilities?.total || 0;
+          if (vulnCount > 0) {
+            this.analysis.recommendations.push({
+              category: 'Security',
+              priority: 'critical',
+              suggestion: `Address ${vulnCount} security vulnerabilities found in dependencies`
+            });
+          }
+        } catch (err) {
+          Logger.warn('Could not parse audit results');
+        }
+      }
+    }
+  }
+
+  saveReport() {
+    const reportPath = path.join(process.cwd(), 'analysis-report.json');
+    fs.writeFileSync(reportPath, JSON.stringify(this.analysis, null, 2));
+    Logger.success(`Analysis report saved to ${reportPath}`);
+    
+    // Generate markdown summary
+    const mdPath = path.join(process.cwd(), 'ANALYSIS-SUMMARY.md');
+    const md = this.generateMarkdownReport();
+    fs.writeFileSync(mdPath, md);
+    Logger.success(`Summary saved to ${mdPath}`);
+  }
+
+  generateMarkdownReport() {
+    return `# Repository Analysis Report
+
+Generated: ${new Date().toISOString()}
+
+## Overview
+
+- **Total Files**: ${this.analysis.files.length}
+- **Duplicate Files**: ${this.analysis.duplicates.length}
+- **Unique Dependencies**: ${Object.keys(this.analysis.dependencies).length}
+- **Issues Found**: ${this.analysis.issues.length}
+
+## Duplicates
+
+${this.analysis.duplicates.slice(0, 10).map(d => `
+### ${d.files[0]}
+- Duplicates: ${d.count}
+- Total Size: ${(d.totalSize / 1024).toFixed(2)} KB
+- Locations:
+${d.files.map(f => `  - ${f}`).join('\n')}
+`).join('\n')}
+
+${this.analysis.duplicates.length > 10 ? `\n... and ${this.analysis.duplicates.length - 10} more duplicates\n` : ''}
+
+## Issues
+
+${this.analysis.issues.map(i => `
+### ${i.type}: ${i.package || 'Unknown'}
+${JSON.stringify(i, null, 2)}
+`).join('\n')}
+
+## Recommendations
+
+${this.analysis.recommendations.map((r, i) => `
+${i + 1}. **[${r.priority.toUpperCase()}]** ${r.category}: ${r.suggestion}
+`).join('\n')}
+
+## Next Steps
+
+1. Review this report
+2. Run \`node unify-repo.js\` to apply automated fixes
+3. Manually review and test changes
+4. Commit unified structure
+`;
+  }
+}
+
+// ============================================================================
+// PHASE 2: BACKUP
+// ============================================================================
+
+class BackupManager {
+  constructor(config) {
+    this.config = config;
+  }
+
+  async createBackup() {
+    Logger.section('PHASE 2: CREATING BACKUP');
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const branchName = `backup-${timestamp}`;
+    const tagName = `pre-unification-${timestamp}`;
+    
+    // Create git branch
+    Logger.info(`Creating backup branch: ${branchName}`);
+    const branchResult = execCommand(`git branch ${branchName}`);
+    if (branchResult.success) {
+      Logger.success('Backup branch created');
+    } else {
+      Logger.error('Failed to create backup branch');
+    }
+    
+    // Create git tag
+    Logger.info(`Creating tag: ${tagName}`);
+    const tagResult = execCommand(`git tag ${tagName}`);
+    if (tagResult.success) {
+      Logger.success('Tag created');
+    }
+    
+    // Create tarball backup
+    Logger.info('Creating tarball backup...');
+    const backupPath = path.join('..', `repo-backup-${timestamp}.tar.gz`);
+    const tarResult = execCommand(`tar -czf ${backupPath} --exclude=node_modules --exclude=.git --exclude=dist .`);
+    
+    if (tarResult.success) {
+      Logger.success(`Backup created: ${backupPath}`);
+    }
+    
+    return { branchName, tagName, backupPath };
+  }
+}
+
+// ============================================================================
+// PHASE 3: RESTRUCTURE
+// ============================================================================
+
+class RepositoryRestructurer {
+  constructor(config, analysis) {
+    this.config = config;
+    this.analysis = analysis;
+    this.movements = [];
+  }
+
+  async restructure(dryRun = false) {
+    Logger.section('PHASE 3: RESTRUCTURING REPOSITORY');
+    
+    this.createTargetStructure(dryRun);
+    this.categorizeFiles();
+    this.moveFiles(dryRun);
+    
+    if (!dryRun) {
+      this.saveMovementLog();
+    }
+    
+    return this.movements;
+  }
+
+  createTargetStructure(dryRun) {
+    Logger.info('Creating target directory structure...');
+    
+    const dirs = [
+      '.github/workflows',
+      '.github/ISSUE_TEMPLATE',
+      'docs/architecture',
+      'docs/api',
+      'docs/runbooks',
+      'docs/compliance',
+      'infrastructure/terraform',
+      'infrastructure/kubernetes',
+      'infrastructure/docker',
+      'scripts',
+      'tests/e2e',
+      'tests/integration',
+      'shared/utils',
+      'shared/types',
+      'shared/config',
+      'shared/security'
+    ];
+    
+    // Add service directories
+    Object.values(this.config.targetDirectories.services).forEach(service => {
+      dirs.push(`services/${service}/src`);
+      dirs.push(`services/${service}/tests`);
+    });
+    
+    dirs.forEach(dir => {
+      if (!dryRun) {
+        ensureDir(dir);
+      }
+      Logger.info(`${dryRun ? '[DRY RUN] Would create' : 'Created'}: ${dir}`);
+    });
+  }
+
+  categorizeFiles() {
+    Logger.info('Categorizing files...');
+    
+    this.analysis.files.forEach(file => {
+      const category = this.determineCategory(file.path);
+      this.movements.push({
+        from: file.path,
+        to: this.determineTarget(file.path, category),
+        category,
+        size: file.size
+      });
+    });
+  }
+
+  determineCategory(filePath) {
+    const lower = filePath.toLowerCase();
+    
+    // GitHub workflows
+    if (lower.includes('.github') || lower.includes('workflow')) return 'github';
+    
+    // Documentation
+    if (lower.includes('readme') || lower.includes('doc') || /\.(md|txt)$/.test(lower)) return 'docs';
+    
+    // Infrastructure
+    if (lower.includes('terraform') || lower.includes('docker') || lower.includes('k8s') || 
+        lower.includes('kubernetes') || /\.(tf|dockerfile)$/.test(lower)) return 'infrastructure';
+    
+    // Tests
+    if (/\.(test|spec)\.(js|ts|jsx|tsx)$/.test(lower) || lower.includes('__tests__')) return 'tests';
+    
+    // Configuration
+    if (/\.(json|ya?ml|toml|ini|env)$/.test(lower) && !lower.includes('package.json')) return 'config';
+    
+    // Detect service by path keywords
+    const services = ['antivirus', 'scanner', 'benchmark', 'discord', 'bot', 'api', 'gateway', 'dashboard'];
+    for (const service of services) {
+      if (lower.includes(service)) return `service:${service}`;
+    }
+    
+    // Shared utilities
+    if (lower.includes('util') || lower.includes('helper') || lower.includes('common')) return 'shared';
+    
+    return 'unknown';
+  }
+
+  determineTarget(filePath, category) {
+    const fileName = path.basename(filePath);
+    const ext = path.extname(filePath);
+    
+    switch (category) {
+      case 'github':
+        return path.join('.github', filePath.split('.github/')[1] || fileName);
+      
+      case 'docs':
+        if (fileName.toLowerCase() === 'readme.md') return 'README.md';
+        return path.join('docs', fileName);
+      
+      case 'infrastructure':
+        if (filePath.includes('terraform')) return path.join('infrastructure/terraform', fileName);
+        if (filePath.includes('docker')) return path.join('infrastructure/docker', fileName);
+        if (filePath.includes('k8s') || filePath.includes('kubernetes')) {
+          return path.join('infrastructure/kubernetes', fileName);
+        }
+        return path.join('infrastructure', fileName);
+      
+      case 'tests':
+        if (filePath.includes('e2e')) return path.join('tests/e2e', fileName);
+        if (filePath.includes('integration')) return path.join('tests/integration', fileName);
+        return path.join('tests', fileName);
+      
+      case 'config':
+        return path.join('config', fileName);
+      
+      case 'shared':
+        return path.join('shared/utils', fileName);
+      
+      default:
+        if (category.startsWith('service:')) {
+          const serviceName = category.split(':')[1];
+          const serviceDir = `services/${serviceName}`;
+          if (/\.(test|spec)\.(js|ts)$/.test(fileName)) {
+            return path.join(serviceDir, 'tests', fileName);
+          }
+          return path.join(serviceDir, 'src', fileName);
+        }
+        return filePath; // Keep in place if unknown
+    }
+  }
+
+  moveFiles(dryRun) {
+    Logger.info(`${dryRun ? '[DRY RUN] Simulating' : 'Moving'} files...`);
+    
+    let moved = 0;
+    let skipped = 0;
+    
+    this.movements.forEach(movement => {
+      if (movement.from === movement.to) {
+        skipped++;
+        return;
+      }
+      
+      if (dryRun) {
+        Logger.info(`[DRY RUN] Would move: ${movement.from} → ${movement.to}`);
+      } else {
+        try {
+          ensureDir(path.dirname(movement.to));
+          
+          if (this.config.preserveGitHistory) {
+            execCommand(`git mv "${movement.from}" "${movement.to}"`, { silent: true });
+          } else {
+            fs.renameSync(movement.from, movement.to);
+          }
+          
+          moved++;
+        } catch (err) {
+          Logger.warn(`Could not move ${movement.from}: ${err.message}`);
+        }
+      }
+    });
+    
+    Logger.success(`${dryRun ? 'Would move' : 'Moved'} ${moved} files, skipped ${skipped} files`);
+  }
+
+  saveMovementLog() {
+    const logPath = path.join(process.cwd(), 'file-movements.json');
+    fs.writeFileSync(logPath, JSON.stringify(this.movements, null, 2));
+    Logger.success(`Movement log saved to ${logPath}`);
+  }
+}
+
+// ============================================================================
+// PHASE 4: CONSOLIDATION
+// ============================================================================
+
+class ConfigConsolidator {
+  constructor(config, analysis) {
+    this.config = config;
+    this.analysis = analysis;
+  }
+
+  async consolidate(dryRun = false) {
+    Logger.section('PHASE 4: CONSOLIDATING CONFIGURATIONS');
+    
+    await this.consolidatePackageJson(dryRun);
+    await this.consolidateESLint(dryRun);
+    await this.consolidateTsConfig(dryRun);
+    await this.removeDuplicates(dryRun);
+  }
+
+  async consolidatePackageJson(dryRun) {
+    Logger.info('Consolidating package.json files...');
+    
+    const packageFiles = this.analysis.files.filter(f => f.path.endsWith('package.json'));
+    
+    if (packageFiles.length === 0) {
+      Logger.warn('No package.json files found');
+      return;
+    }
+    
+    const consolidated = {
+      name: this.config.projectName,
+      version: '1.0.0',
+      private: true,
+      workspaces: ['services/*', 'shared/*'],
+      scripts: {},
+      dependencies: {},
+      devDependencies: {}
+    };
+    
+    // Merge all package.json files
+    packageFiles.forEach(pkgFile => {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgFile.fullPath, 'utf8'));
+        
+        // Merge scripts
+        Object.assign(consolidated.scripts, pkg.scripts);
+        
+        // Merge dependencies (use highest version)
+        this.mergeDependencies(consolidated.dependencies, pkg.dependencies);
+        this.mergeDependencies(consolidated.devDependencies, pkg.devDependencies);
+      } catch (err) {
+        Logger.warn(`Could not parse ${pkgFile.path}`);
+      }
+    });
+    
+    if (!dryRun) {
+      fs.writeFileSync('package.json', JSON.stringify(consolidated, null, 2));
+      Logger.success('Consolidated package.json created');
+    } else {
+      Logger.info('[DRY RUN] Would create consolidated package.json');
+    }
+  }
+
+  mergeDependencies(target, source) {
+    if (!source) return;
+    
+    Object.entries(source).forEach(([name, version]) => {
+      if (!target[name]) {
+        target[name] = version;
+      } else {
+        // Keep highest version (simplified comparison)
+        const currentVer = target[name].replace(/[^0-9.]/g, '');
+        const newVer = version.replace(/[^0-9.]/g, '');
+        if (newVer > currentVer) {
+          target[name] = version;
+        }
+      }
+    });
+  }
+
+  async consolidateESLint(dryRun) {
+    Logger.info('Consolidating ESLint configuration...');
+    
+    const eslintConfig = {
+      root: true,
+      extends: [
+        'eslint:recommended',
+        'plugin:@typescript-eslint/recommended',
+        'plugin:security/recommended'
+      ],
+      plugins: ['@typescript-eslint', 'security'],
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module'
+      },
+      rules: {
+        'no-console': 'warn',
+        'no-eval': 'error',
+        'no-implied-eval': 'error',
+        'security/detect-eval-with-expression': 'error',
+        'security/detect-non-literal-regexp': 'error',
+        'security/detect-unsafe-regex': 'error'
+      }
+    };
+    
+    if (!dryRun) {
+      fs.writeFileSync('.eslintrc.json', JSON.stringify(eslintConfig, null, 2));
+      Logger.success('ESLint configuration created');
+    }
+  }
+
+  async consolidateTsConfig(dryRun) {
+    Logger.info('Consolidating TypeScript configuration...');
+    
+    const tsConfig = {
+      compilerOptions: {
+        target: 'ES2022',
+        module: 'commonjs',
+        lib: ['ES2022'],
+        strict: true,
+        esModuleInterop: true,
+        skipLibCheck: true,
+        forceConsistentCasingInFileNames: true,
+        resolveJsonModule: true,
+        declaration: true,
+        outDir: './dist',
+        rootDir: './src',
+        baseUrl: '.',
+        paths: {
+          '@shared/*': ['shared/*'],
+          '@services/*': ['services/*']
+        }
+      },
+      include: ['services/**/*', 'shared/**/*'],
+      exclude: ['node_modules', 'dist', '**/*.test.ts']
+    };
+    
+    if (!dryRun) {
+      fs.writeFileSync('tsconfig.json', JSON.stringify(tsConfig, null, 2));
+      Logger.success('TypeScript configuration created');
+    }
+  }
+
+  async removeDuplicates(dryRun) {
+    Logger.info('Removing duplicate files...');
+    
+    let removed = 0;
+    this.analysis.duplicates.forEach(dup => {
+      // Keep the first file, remove the rest
+      const [keep, ...remove] = dup.files;
+      
+      remove.forEach(filePath => {
+        if (dryRun) {
+          Logger.info(`[DRY RUN] Would remove duplicate: ${filePath}`);
+        } else {
+          try {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              removed++;
+              Logger.info(`Removed duplicate: ${filePath} (kept ${keep})`);
+            }
+          } catch (err) {
+            Logger.warn(`Could not remove ${filePath}: ${err.message}`);
+          }
+        }
+      });
+    });
+    
+    Logger.success(`${dryRun ? 'Would remove' : 'Removed'} ${removed} duplicate files`);
+  }
+}
+
+// ============================================================================
+// PHASE 5: VALIDATION
+// ============================================================================
+
+class RepositoryValidator {
+  constructor(config) {
+    this.config = config;
+    this.validations = [];
+  }
+
+  async validate() {
+    Logger.section('PHASE 5: VALIDATING STRUCTURE');
+    
+    this.validateStructure();
+    await this.validateBuild();
+    await this.runTests();
+    await this.securityScan();
+    
+    this.generateReport();
+    
+    return this.validations;
+  }
+
+  validateStructure() {
+    Logger.info('Validating directory structure...');
+    
+    const requiredDirs = [
+      'services',
+      'shared',
+      'docs',
+      'infrastructure',
+      'tests'
+    ];
+    
+    requiredDirs.forEach(dir => {
+      if (fs.existsSync(dir)) {
+        this.validations.push({ check: `Directory ${dir}`, status: 'pass' });
+      } else {
+        this.validations.push({ check: `Directory ${dir}`, status: 'fail', error: 'Missing' });
+        Logger.warn(`Missing required directory: ${dir}`);
+      }
+    });
+    
+    // Check for root files
+    const requiredFiles = ['package.json', 'README.md'];
+    requiredFiles.forEach(file => {
+      if (fs.existsSync(file)) {
+        this.validations.push({ check: `File ${file}`, status: 'pass' });
+      } else {
+        this.validations.push({ check: `File ${file}`, status: 'warn', error: 'Missing' });
+      }
+    });
+  }
+
+  async validateBuild() {
+    Logger.info('Validating build...');
+    
+    if (!fs.existsSync('package.json')) {
+      Logger.warn('No package.json found, skipping build validation');
+      return;
+    }
+    
+    // Install dependencies
+    Logger.info('Installing dependencies...');
+    const installResult = execCommand('npm install', { silent: false });
+    
+    if (installResult.success) {
+      this.validations.push({ check: 'npm install', status: 'pass' });
+      
+      // Try to build if build script exists
+      try {
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        if (pkg.scripts && pkg.scripts.build) {
+          Logger.info('Running build...');
+          const buildResult = execCommand('npm run build', { silent: false });
+          
+          if (buildResult.success) {
+            this.validations.push({ check: 'npm run build', status: 'pass' });
+          } else {
+            this.validations.push({ 
+              check: 'npm run build', 
+              status: 'fail', 
+              error: buildResult.error 
+            });
+          }
+        }
+      } catch (err) {
+        Logger.warn('Could not check for build script');
+      }
+    } else {
+      this.validations.push({ 
+        check: 'npm install', 
+        status: 'fail', 
+        error: installResult.error 
+      });
+    }
+  }
+
+  async runTests() {
+    Logger.info('Running tests...');
+    
+    try {
+      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      if (pkg.scripts && pkg.scripts.test) {
+        const testResult = execCommand('npm test', { silent: false });
+        
+        if (testResult.success) {
+          this.validations.push({ check: 'npm test', status: 'pass' });
+        } else {
+          this.validations.push({ 
+            check: 'npm test', 
+            status: 'warn', 
+            error: 'Some tests failed' 
+          });
+        }
+      } else {
+        Logger.warn('No test script found');
+      }
+    } catch (err) {
+      Logger.warn('Could not run tests');
+    }
+  }
+
+  async securityScan() {
+    if (!this.config.securityScanning) {
+      Logger.info('Security scanning disabled');
+      return;
+    }
+    
+    Logger.info('Running security scan...');
+    
+    // npm audit
+    const auditResult = execCommand('npm audit --json', { silent: true });
+    if (auditResult.success) {
+      try {
+        const audit = JSON.parse(auditResult.output);
+        const vulns = audit.metadata?.vulnerabilities || {};
+        const total = vulns.total || 0;
+        
+        if (total === 0) {
+          this.validations.push({ check: 'npm audit', status: 'pass' });
+        } else {
+          this.validations.push({ 
+            check: 'npm audit', 
+            status: 'warn', 
+            error: `${total} vulnerabilities found (critical: ${vulns.critical || 0}, high: ${vulns.high || 0})` 
+          });
+        }
+      } catch (err) {
+        Logger.warn('Could not parse audit results');
+      }
+    }
+    
+    // Check for secrets in code
+    Logger.info('Scanning for exposed secrets...');
+    const secretPatterns = [
+      /api[_-]?key[\s]*[:=][\s]*['"][a-zA-Z0-9]{20,}['"]/gi,
+      /password[\s]*[:=][\s]*['"][^'"]+['"]/gi,
+      /secret[\s]*[:=][\s]*['"][^'"]+['"]/gi,
+      /token[\s]*[:=][\s]*['"][a-zA-Z0-9]{20,}['"]/gi
+    ];
+    
+    let secretsFound = 0;
+    walkDir(process.cwd(), (filePath) => {
+      if (!/\.(js|ts|jsx|tsx|json|env)$/.test(filePath)) return;
+      
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        secretPatterns.forEach(pattern => {
+          if (pattern.test(content)) {
+            secretsFound++;
+            Logger.warn(`Potential secret found in: ${filePath}`);
+          }
+        });
+      } catch (err) {
+        // Ignore read errors
+      }
+    }, this.config.excludePatterns);
+    
+    if (secretsFound > 0) {
+      this.validations.push({ 
+        check: 'Secret scanning', 
+        status: 'warn', 
+        error: `${secretsFound} potential secrets found` 
+      });
+    } else {
+      this.validations.push({ check: 'Secret scanning', status: 'pass' });
+    }
+  }
+
+  generateReport() {
+    const passed = this.validations.filter(v => v.status === 'pass').length;
+    const failed = this.validations.filter(v => v.status === 'fail').length;
+    const warned = this.validations.filter(v => v.status === 'warn').length;
+    
+    Logger.info(`\nValidation Results: ${passed} passed, ${failed} failed, ${warned} warnings`);
+    
+    const reportPath = path.join(process.cwd(), 'validation-report.json');
+    fs.writeFileSync(reportPath, JSON.stringify({
+      timestamp: new Date().toISOString(),
+      summary: { passed, failed, warned },
+      validations: this.validations
+    }, null, 2));
+    
+    Logger.success(`Validation report saved to ${reportPath}`);
+    
+    if (failed > 0) {
+      Logger.error('Validation failed! Please review errors above.');
+      process.exit(1);
+    }
+  }
+}
+
+// ============================================================================
+// MAIN ORCHESTRATOR
+// ============================================================================
+
+class RepositoryUnifier {
+  constructor(config) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  async run(options = {}) {
+    const startTime = Date.now();
+    
+    try {
+      Logger.section(`REPOSITORY UNIFICATION: ${this.config.projectName}`);
+      Logger.info(`Dry Run: ${options.dryRun ? 'YES' : 'NO'}`);
+      Logger.info(`Working Directory: ${process.cwd()}`);
+      
+      // Phase 1: Analysis
+      const analyzer = new RepositoryAnalyzer(this.config);
+      const analysis = await analyzer.analyze();
+      
+      if (options.analyzeOnly) {
+        Logger.success('Analysis complete. Review analysis-report.json');
+        return;
+      }
+      
+      // Phase 2: Backup (skip if disabled or dry run)
+      if (!options.skipBackup && !options.dryRun) {
+        const backupManager = new BackupManager(this.config);
+        await backupManager.createBackup();
+      } else if (options.dryRun) {
+        Logger.info('[DRY RUN] Skipping backup creation');
+      }
+      
+      // Phase 3: Restructure
+      const restructurer = new RepositoryRestructurer(this.config, analysis);
+      await restructurer.restructure(options.dryRun);
+      
+      // Phase 4: Consolidate
+      const consolidator = new ConfigConsolidator(this.config, analysis);
+      await consolidator.consolidate(options.dryRun);
+      
+      // Phase 5: Validate (skip in dry run)
+      if (!options.dryRun) {
+        const validator = new RepositoryValidator(this.config);
+        await validator.validate();
+      } else {
+        Logger.info('[DRY RUN] Skipping validation');
+      }
+      
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      Logger.section(`✨ UNIFICATION ${options.dryRun ? 'SIMULATION' : 'COMPLETE'} (${elapsed}s)`);
+      
+      if (options.dryRun) {
+        Logger.info('Run without --dry-run to apply changes');
+      } else {
+        Logger.success('Repository has been unified successfully!');
+        Logger.info('\nNext steps:');
+        Logger.info('1. Review changes: git status');
+        Logger.info('2. Test functionality: npm test');
+        Logger.info('3. Commit changes: git commit -am "Unify repository structure"');
+        Logger.info('4. Update documentation as needed');
+      }
+      
+    } catch (err) {
+      Logger.error(`Unification failed: ${err.message}`);
+      Logger.error(err.stack);
+      process.exit(1);
+    }
+  }
+}
+
+// ============================================================================
+// CLI INTERFACE
+// ============================================================================
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = {
+    dryRun: false,
+    skipBackup: false,
+    force: false,
+    analyzeOnly: false,
+    configPath: 'unify-config.json'
+  };
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    switch (arg) {
+      case '--dry-run':
+        options.dryRun = true;
+        break;
+      case '--skip-backup':
+        options.skipBackup = true;
+        break;
+      case '--force':
+        options.force = true;
+        break;
+      case '--analyze-only':
+        options.analyzeOnly = true;
+        break;
+      case '--config':
+        options.configPath = args[++i];
+        break;
+      case '--help':
+      case '-h':
+        printHelp();
+        process.exit(0);
+        break;
+      default:
+        Logger.error(`Unknown option: ${arg}`);
+        printHelp();
+        process.exit(1);
+    }
+  }
+  
+  return options;
+}
+
+function printHelp() {
+  console.log(`
+Repository Unification Script
+
+Usage: node unify-repo.js [options]
+
+Options:
+  --dry-run          Show what would be done without making changes
+  --config <path>    Path to custom config file (default: unify-config.json)
+  --skip-backup      Skip backup creation (not recommended for production)
+  --force            Force operations without prompts
+  --analyze-only     Only run analysis phase, don't make changes
+  --help, -h         Show this help message
+
+Examples:
+  # Analyze repository structure
+  node unify-repo.js --analyze-only
+  
+  # Simulate unification (safe)
+  node unify-repo.js --dry-run
+  
+  # Apply unification
+  node unify-repo.js
+  
+  # Use custom config
+  node unify-repo.js --config my-config.json
+
+Configuration:
+  Create unify-config.json to customize behavior:
+  {
+    "projectName": "my-project",
+    "monorepoTool": "turborepo",
+    "namingConvention": "kebab-case",
+    "targetStructure": "microservices"
+  }
+  `);
+}
+
+// ============================================================================
+// EXECUTION
+// ============================================================================
+
+async function main() {
+  const options = parseArgs();
+  
+  // Load custom config if exists
+  let customConfig = {};
+  if (fs.existsSync(options.configPath)) {
+    try {
+      customConfig = JSON.parse(fs.readFileSync(options.configPath, 'utf8'));
+      Logger.info(`Loaded config from ${options.configPath}`);
+    } catch (err) {
+      Logger.warn(`Could not load config file: ${err.message}`);
+    }
+  }
+  
+  // Confirm if not dry run and not forced
+  if (!options.dryRun && !options.force && !options.analyzeOnly) {
+    console.log('\n⚠️  This will restructure your repository.');
+    console.log('A backup will be created, but please ensure you have committed your work.');
+    console.log('\nPress Ctrl+C to cancel, or press Enter to continue...');
+    
+    await new Promise(resolve => {
+      process.stdin.once('data', () => resolve());
+    });
+  }
+  
+  const unifier = new RepositoryUnifier(customConfig);
+  await unifier.run(options);
+}
+
+// Run if executed directly
+if (require.main === module) {
+  main().catch(err => {
+    Logger.error(`Fatal error: ${err.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { RepositoryUnifier, RepositoryAnalyzer };
+
+{
+  "projectName": "cybersecurity-platform",
+  "description": "Configuration for repository unification script",
+  
+  "monorepoTool": "turborepo",
+  "preserveGitHistory": true,
+  "mergeDuplicates": true,
+  "namingConvention": "kebab-case",
+  "targetStructure": "microservices",
+  
+  "excludePatterns": [
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "coverage",
+    ".env",
+    ".env.*",
+    "*.log",
+    ".DS_Store",
+    "tmp",
+    "*.swp",
+    ".vscode",
+    ".idea"
+  ],
+  
+  "securityScanning": true,
+  "generateDocumentation": true,
+  "autoFixImports": true,
+  "updatePackageReferences": true,
+  
+  "targetDirectories": {
+    "services": [
+      "antivirus-scanner",
+      "benchmark-runner",
+      "discord-bot",
+      "api-gateway",
+      "dashboard",
+      "threat-intelligence",
+      "compliance-monitor"
+    ],
+    "shared": [
+      "utils",
+      "types",
+      "constants",
+      "config",
+      "db",
+      "security",
+      "validation",
+      "encryption",
+      "logging"
+    ],
+    "infrastructure": [
+      "terraform",
+      "kubernetes",
+      "docker",
+      "scripts",
+      "monitoring"
+    ],
+    "docs": [
+      "architecture",
+      "api",
+      "runbooks",
+      "compliance",
+      "security-policies",
+      "user-guides"
+    ],
+    "tests": [
+      "e2e",
+      "integration",
+      "performance",
+      "security"
+    ]
+  },
+  
+  "fileCategorizationRules": {
+    "services": {
+      "patterns": [
+        "**/antivirus/**",
+        "**/scanner/**",
+        "**/benchmark/**",
+        "**/discord/**",
+        "**/bot/**",
+        "**/api/**",
+        "**/gateway/**",
+        "**/dashboard/**"
+      ]
+    },
+    "shared": {
+      "patterns": [
+        "**/util/**",
+        "**/utils/**",
+        "**/helper/**",
+        "**/helpers/**",
+        "**/common/**",
+        "**/lib/**",
+        "**/shared/**"
+      ]
+    },
+    "infrastructure": {
+      "extensions": [".tf", ".yaml", ".yml"],
+      "patterns": [
+        "**/terraform/**",
+        "**/k8s/**",
+        "**/kubernetes/**",
+        "**/docker/**",
+        "**/Dockerfile",
+        "**/docker-compose*"
+      ]
+    },
+    "tests": {
+      "extensions": [".test.js", ".test.ts", ".spec.js", ".spec.ts"],
+      "patterns": [
+        "**/__tests__/**",
+        "**/test/**",
+        "**/tests/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ]
+    },
+    "docs": {
+      "extensions": [".md", ".txt", ".doc", ".pdf"],
+      "patterns": [
+        "**/docs/**",
+        "**/documentation/**",
+        "**/README*"
+      ]
+    }
+  },
+  
+  "mergingStrategies": {
+    "packageJson": {
+      "strategy": "merge",
+      "versionConflictResolution": "highest",
+      "scriptsConflictResolution": "concatenate",
+      "preserveWorkspaces": true
+    },
+    "eslintConfig": {
+      "strategy": "consolidate",
+      "baseConfig": "strictest",
+      "allowProjectOverrides": true
+    },
+    "tsConfig": {
+      "strategy": "consolidate",
+      "strictMode": true,
+      "allowProjectOverrides": true
+    },
+    "gitignore": {
+      "strategy": "merge-unique",
+      "addCommonPatterns": true
+    }
+  },
+  
+  "postProcessing": {
+    "runLinter": true,
+    "runFormatter": true,
+    "fixImportPaths": true,
+    "generateBarrelExports": true,
+    "updateDocumentation": true,
+    "createMonorepoConfig": true
+  },
+  
+  "validation": {
+    "requireTests": true,
+    "minTestCoverage": 70,
+    "requireDocumentation": true,
+    "securityScanThreshold": "high",
+    "performanceBudget": {
+      "maxBuildTime": 300,
+      "maxInstallTime": 120
+    }
+  },
+  
+  "customRules": {
+    "fileMovements": [
+      {
+        "from": "src/old-location/**",
+        "to": "services/new-location/**",
+        "pattern": "*.ts"
+      }
+    ],
+    "renamePatterns": [
+      {
+        "from": "*.spec.js",
+        "to": "*.test.js"
+      }
+    ],
+    "ignoreFiles": [
+      "legacy/**",
+      "deprecated/**"
+    ]
+  },
+  
+  "notifications": {
+    "discord": {
+      "enabled": false,
+      "webhookUrl": "",
+      "notifyOnComplete": true,
+      "notifyOnError": true
+    },
+    "slack": {
+      "enabled": false,
+      "webhookUrl": "",
+      "channel": "#engineering"
+    },
+    "email": {
+      "enabled": false,
+      "recipients": []
+    }
+  },
+  
+  "reporting": {
+    "generatePdf": false,
+    "generateHtml": true,
+    "generateJson": true,
+    "includeMetrics": true,
+    "includeDependencyGraph": true,
+    "includeCodeQualityMetrics": true
+  }
+}
+
+name: Repository Unification
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (no changes)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      analyze_only:
+        description: 'Only analyze, do not restructure'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      skip_backup:
+        description: 'Skip backup creation'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  unify-repository:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git mv to preserve history
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies for unification script
+        run: |
+          npm install -g madge jscpd cloc
+      
+      - name: Run repository unification
+        id: unify
+        run: |
+          DRY_RUN_FLAG=""
+          ANALYZE_ONLY_FLAG=""
+          SKIP_BACKUP_FLAG=""
+          
+          if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
+          
+          if [ "${{ github.event.inputs.analyze_only }}" == "true" ]; then
+            ANALYZE_ONLY_FLAG="--analyze-only"
+          fi
+          
+          if [ "${{ github.event.inputs.skip_backup }}" == "true" ]; then
+            SKIP_BACKUP_FLAG="--skip-backup"
+          fi
+          
+          node unify-repo.js $DRY_RUN_FLAG $ANALYZE_ONLY_FLAG $SKIP_BACKUP_FLAG --force
+        continue-on-error: true
+      
+      - name: Upload analysis report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unification-reports
+          path: |
+            analysis-report.json
+            ANALYSIS-SUMMARY.md
+            validation-report.json
+            file-movements.json
+          retention-days: 30
+      
+      - name: Create Pull Request
+        if: github.event.inputs.dry_run == 'false' && steps.unify.outcome == 'success'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'refactor: unify repository structure'
+          title: 'Repository Unification'
+          body: |
+            ## Repository Unification
+            
+            This PR contains automated repository restructuring.
+            
+            ### Changes
+            - Unified directory structure
+            - Consolidated configurations
+            - Removed duplicate files
+            - Standardized naming conventions
+            
+            ### Reports
+            See attached artifacts for detailed analysis and validation reports.
+            
+            ### Review Checklist
+            - [ ] All tests pass
+            - [ ] No breaking changes to imports
+            - [ ] Documentation updated
+            - [ ] Security scan passes
+            - [ ] Build succeeds
+            
+            ### Next Steps
+            1. Review file movements in `file-movements.json`
+            2. Test all services locally
+            3. Update CI/CD pipelines if needed
+            4. Merge and deploy
+            
+            Generated by: Repository Unification Script
+          branch: unify-repo-structure
+          delete-branch: false
+          labels: |
+            refactor
+            automated
+            infrastructure
+      
+      - name: Comment on PR with reports
+        if: github.event.inputs.dry_run == 'false' && steps.unify.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## Unification Report\n\n';
+            
+            // Read analysis summary
+            try {
+              const summary = fs.readFileSync('ANALYSIS-SUMMARY.md', 'utf8');
+              comment += summary;
+            } catch (err) {
+              comment += 'Could not load analysis summary\n';
+            }
+            
+            // Read validation report
+            try {
+              const validation = JSON.parse(fs.readFileSync('validation-report.json', 'utf8'));
+              comment += '\n\n### Validation Results\n\n';
+              comment += `- ✅ Passed: ${validation.summary.passed}\n`;
+              comment += `- ❌ Failed: ${validation.summary.failed}\n`;
+              comment += `- ⚠️ Warnings: ${validation.summary.warned}\n`;
+            } catch (err) {
+              comment += 'Could not load validation report\n';
+            }
+            
+            // Find the PR
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:unify-repo-structure`
+            });
+            
+            if (prs.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prs[0].number,
+                body: comment
+              });
+            }
+      
+      - name: Notify Discord
+        if: always() && env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ steps.unify.outcome }}"
+          COLOR="3066993"  # Blue
+          
+          if [ "$STATUS" == "success" ]; then
+            COLOR="3066993"  # Green
+            TITLE="✅ Repository Unification Successful"
+          else
+            COLOR="15158332"  # Red
+            TITLE="❌ Repository Unification Failed"
+          fi
+          
+          DESCRIPTION="Dry Run: ${{ github.event.inputs.dry_run }}\nAnalyze Only: ${{ github.event.inputs.analyze_only }}"
+          
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "'"$TITLE"'",
+                "description": "'"$DESCRIPTION"'",
+                "color": '"$COLOR"',
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "${{ github.repository }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Workflow Run",
+                    "value": "[View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+                    "inline": true
+                  }
+                ],
+                "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"'"
+              }]
+            }' \
+            $DISCORD_WEBHOOK_URL
+      
+      - name: Security scan after unification
+        if: github.event.inputs.dry_run == 'false' && steps.unify.outcome == 'success'
+        run: |
+          npm audit --audit-level=high || echo "Security vulnerabilities found"
+      
+      - name: Generate dependency graph
+        if: github.event.inputs.dry_run == 'false' && steps.unify.outcome == 'success'
+        run: |
+          npx madge --image dependency-graph.svg --circular --extensions js,ts .
+        continue-on-error: true
+      
+      - name: Upload dependency graph
+        if: github.event.inputs.dry_run == 'false' && steps.unify.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-graph
+          path: dependency-graph.svg
+          retention-days: 30
+# Repository Unification Guide
+
+This guide explains how to use the repository unification script to consolidate and standardize your fragmented cybersecurity codebase.
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [What It Does](#what-it-does)
+- [Safety Features](#safety-features)
+- [GitHub Actions Integration](#github-actions-integration)
+- [Troubleshooting](#troubleshooting)
+- [Advanced Usage](#advanced-usage)
+
+## 🎯 Overview
+
+The unification script performs five key phases:
+
+1. **Analysis**: Scans your repository, detects duplicates, maps dependencies
+2. **Backup**: Creates git branch, tag, and tarball backup
+3. **Restructure**: Moves files to unified directory structure
+4. **Consolidation**: Merges configs, removes duplicates
+5. **Validation**: Builds, tests, and security scans
+
+## ✅ Prerequisites
+
+### Required
+
+- **Node.js** 18+ (`node --version`)
+- **Git** 2.0+ (`git --version`)
+- **npm** or **yarn**
+
+### Optional (for enhanced features)
+
+```bash
+# Install analysis tools globally
+npm install -g madge jscpd cloc dependency-cruiser
+
+# Or use npx (no install needed)
+npx madge --version
+```
+
+### Repository Requirements
+
+- Git repository initialized
+- Clean working directory (commit or stash changes)
+- At least one `package.json` file
+
+## 🚀 Quick Start
+
+### 1. Add the script to your repository
+
+```bash
+# Copy unify-repo.js to your repository root
+curl -O https://your-repo/unify-repo.js
+
+# Make it executable
+chmod +x unify-repo.js
+```
+
+### 2. Create configuration file (optional)
+
+```bash
+# Copy the template
+cp unify-config.template.json unify-config.json
+
+# Edit to match your project
+nano unify-config.json
+```
+
+### 3. Run analysis (safe - no changes)
+
+```bash
+node unify-repo.js --analyze-only
+```
+
+**Output**: `analysis-report.json`, `ANALYSIS-SUMMARY.md`
+
+### 4. Test with dry run
+
+```bash
+node unify-repo.js --dry-run
+```
+
+Shows what would be done without making changes.
+
+### 5. Apply unification
+
+```bash
+# Commit your work first!
+git add .
+git commit -m "Checkpoint before unification"
+
+# Run the script
+node unify-repo.js
+```
+
+### 6. Review and test
+
+```bash
+# Check what changed
+git status
+git diff
+
+# Run tests
+npm test
+
+# Build everything
+npm run build
+```
+
+### 7. Commit the unified structure
+
+```bash
+git add .
+git commit -m "refactor: unify repository structure"
+git push
+```
+
+## ⚙️ Configuration
+
+### unify-config.json
+
+```json
+{
+  "projectName": "cybersecurity-platform",
+  "monorepoTool": "turborepo",
+  "preserveGitHistory": true,
+  "mergeDuplicates": true,
+  "namingConvention": "kebab-case",
+  "targetStructure": "microservices",
+  "securityScanning": true,
+  "excludePatterns": [
+    "node_modules",
+    ".git",
+    "dist"
+  ],
+  "targetDirectories": {
+    "services": [
+      "antivirus-scanner",
+      "benchmark-runner",
+      "discord-bot"
+    ]
+  }
+}
+```
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `projectName` | string | Current dir name | Name for unified project |
+| `monorepoTool` | enum | `"turborepo"` | Monorepo tool: `turborepo`, `nx`, `lerna`, `none` |
+| `preserveGitHistory` | boolean | `true` | Use `git mv` to preserve file history |
+| `mergeDuplicates` | boolean | `true` | Remove duplicate files |
+| `namingConvention` | enum | `"kebab-case"` | File naming: `kebab-case`, `camelCase`, `PascalCase` |
+| `targetStructure` | enum | `"microservices"` | Target architecture |
+| `securityScanning` | boolean | `true` | Run security scans |
+| `excludePatterns` | array | See default | Patterns to ignore |
+
+## 📖 Usage
+
+### Command Line Options
+
+```bash
+node unify-repo.js [options]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--analyze-only` | Only analyze, don't make changes |
+| `--dry-run` | Simulate changes without applying |
+| `--skip-backup` | Skip backup creation (not recommended) |
+| `--force` | Skip confirmation prompts |
+| `--config <path>` | Use custom config file |
+| `--help`, `-h` | Show help message |
+
+### Example Commands
+
+```bash
+# Safe analysis
+node unify-repo.js --analyze-only
+
+# See what would change
+node unify-repo.js --dry-run
+
+# Apply with custom config
+node unify-repo.js --config my-config.json
+
+# Quick mode (skip confirmation)
+node unify-repo.js --force
+
+# Analysis only, custom config
+node unify-repo.js --analyze-only --config prod-config.json
+```
+
+## 🔧 What It Does
+
+### Phase 1: Analysis
+
+- Scans all files (ignoring `node_modules`, `.git`, etc.)
+- Detects duplicate files by content hash (SHA-256)
+- Analyzes all `package.json` dependencies
+- Identifies version conflicts
+- Generates recommendations
+
+**Outputs:**
+- `analysis-report.json` - Detailed JSON report
+- `ANALYSIS-SUMMARY.md` - Human-readable summary
+
+### Phase 2: Backup
+
+Creates three safety backups:
+
+```bash
+# Git branch
+git branch backup-2024-12-22-153045
+
+# Git tag
+git tag pre-unification-2024-12-22
+
+# Tarball (excludes node_modules)
+../repo-backup-2024-12-22.tar.gz
+```
+
+### Phase 3: Restructure
+
+Moves files to standardized structure:
+
+```
+.
+├── .github/
+│   ├── workflows/          # CI/CD pipelines
+│   └── ISSUE_TEMPLATE/     # Issue templates
+├── docs/
+│   ├── architecture/       # System design docs
+│   ├── api/               # API documentation
+│   ├── runbooks/          # Operational guides
+│   └── compliance/        # Regulatory docs
+├── services/
+│   ├── antivirus-scanner/
+│   │   ├── src/
+│   │   ├── tests/
+│   │   └── package.json
+│   ├── benchmark-runner/
+│   ├── discord-bot/
+│   └── api-gateway/
+├── shared/
+│   ├── utils/
+│   ├── types/
+│   ├── config/
+│   └── security/
+├── infrastructure/
+│   ├── terraform/
+│   ├── kubernetes/
+│   └── docker/
+├── tests/
+│   ├── e2e/
+│   ├── integration/
+│   └── performance/
+├── scripts/
+├── package.json           # Root package.json
+├── tsconfig.json          # Root TypeScript config
+└── README.md
+```
+
+### Phase 4: Consolidation
+
+#### Merges package.json files:
+
+```javascript
+// Before: 5 different package.json files
+services/scanner/package.json
+services/bot/package.json
+...
+
+// After: 1 root + service-specific
+package.json (root, with workspaces)
+services/*/package.json (service-specific deps)
+```
+
+#### Consolidates configs:
+
+- **ESLint**: Merges all `.eslintrc.*` files, uses strictest rules
+- **TypeScript**: Creates root `tsconfig.json` with shared settings
+- **Prettier**: Unified code formatting
+- **Git**: Merges `.gitignore` patterns
+
+#### Removes duplicates:
+
+```bash
+# Example: Same utility function in 3 places
+src/utils/hash.js
+services/scanner/utils/hash.js
+services/bot/helpers/hash.js
+
+# After: One canonical location
+shared/utils/hash.js
+```
+
+### Phase 5: Validation
+
+Runs comprehensive checks:
+
+1. **Structure validation**: Ensures all required directories exist
+2. **Build test**: `npm install && npm run build`
+3. **Test suite**: `npm test`
+4. **Security scan**: `npm audit`, secret detection
+5. **Dependency check**: Validates version consistency
+
+**Output**: `validation-report.json`
+
+## 🛡️ Safety Features
+
+### 1. Multiple Backups
+
+- Git branch (instant rollback)
+- Git tag (reference point)
+- Tarball (offline backup)
+
+### 2. Dry Run Mode
+
+```bash
+node unify-repo.js --dry-run
+```
+
+Shows exactly what would change without modifying files.
+
+### 3. Git History Preservation
+
+Uses `git mv` instead of file system operations:
+
+```bash
+# Preserves full git history
+git mv old/path/file.js new/path/file.js
+
+# View history after move
+git log --follow new/path/file.js
+```
+
+### 4. Validation Before Commit
+
+Ensures repository still works:
+- Builds successfully
+- Tests pass
+- No security vulnerabilities introduced
+
+### 5. Rollback Instructions
+
+If something goes wrong:
+
+```bash
+# Option 1: Reset to backup branch
+git reset --hard backup-2024-12-22-153045
+
+# Option 2: Use git tag
+git reset --hard pre-unification-2024-12-22
+
+# Option 3: Restore from tarball
+cd ..
+tar -xzf repo-backup-2024-12-22.tar.gz
+```
+
+## 🤖 GitHub Actions Integration
+
+### Setup
+
+1. **Add workflow file**: `.github/workflows/unify-repository.yml`
+2. **Add Discord webhook** (optional): Settings → Secrets → `DISCORD_WEBHOOK_URL`
+
+### Usage
+
+1. Go to **Actions** tab in GitHub
+2. Select **Repository Unification** workflow
+3. Click **Run workflow**
+4. Choose options:
+   - **Dry Run**: `true` (safe) or `false` (apply)
+   - **Analyze Only**: `true` (analysis only)
+5. Click **Run workflow**
+
+### What It Does
+
+- Runs unification script
+- Creates Pull Request with changes
+- Uploads reports as artifacts
+- Posts summary comment on PR
+- Notifies Discord (if configured)
+
+### Artifacts
+
+Download from workflow run:
+- `unification-reports` (JSON + Markdown)
+- `dependency-graph` (SVG visualization)
+
+## 🔍 Troubleshooting
+
+### Issue: "Fatal: refusing to merge unrelated histories"
+
+**Cause**: Multiple git repositories merged together
+
+**Solution**:
+```bash
+# Allow unrelated histories
+git config merge.allowUnrelatedHistories true
+```
+
+### Issue: Import paths broken after restructuring
+
+**Cause**: Relative imports point to old locations
+
+**Solution**:
+```bash
+# Update tsconfig.json paths
+{
+  "compilerOptions": {
+    "paths": {
+      "@shared/*": ["shared/*"],
+      "@services/*": ["services/*"]
+    }
+  }
+}
+
+# Update imports
+# Before: import { hash } from '../../utils/hash'
+# After:  import { hash } from '@shared/utils/hash'
+```
+
+### Issue: Tests fail after unification
+
+**Cause**: Test file paths or imports incorrect
+
+**Solution**:
+```bash
+# Check test configuration
+# jest.config.js or vitest.config.js
+
+# Update moduleNameMapper for new paths
+moduleNameMapper: {
+  '^@shared/(.*)$': '<rootDir>/shared/$1',
+  '^@services/(.*)$': '<rootDir>/services/$1'
+}
+```
+
+### Issue: "npm install" fails
+
+**Cause**: Dependency version conflicts
+
+**Solution**:
+```bash
+# Clear caches
+rm -rf node_modules package-lock.json
+npm cache clean --force
+
+# Reinstall
+npm install
+
+# If still fails, check analysis-report.json for conflicts
+cat analysis-report.json | grep "version_conflict"
+```
+
+### Issue: Security scan shows vulnerabilities
+
+**Solution**:
+```bash
+# Review vulnerabilities
+npm audit
+
+# Fix automatically (may break things)
+npm audit fix
+
+# Fix with breaking changes
+npm audit fix --force
+
+# Manually update specific package
+npm update package-name
+```
+
+## 🚀 Advanced Usage
+
+### Custom File Categorization
+
+Edit `unify-config.json`:
+
+```json
+{
+  "fileCategorizationRules": {
+    "services": {
+      "patterns": [
+        "**/my-custom-service/**",
+        "**/special-handler/**"
+      ]
+    }
+  }
+}
+```
+
+### Custom Merge Strategies
+
+```json
+{
+  "mergingStrategies": {
+    "packageJson": {
+      "versionConflictResolution": "highest",
+      "scriptsConflictResolution": "concatenate"
+    }
+  }
+}
+```
+
+### Programmatic Usage
+
+```javascript
+const { RepositoryUnifier } = require('./unify-repo');
+
+const unifier = new RepositoryUnifier({
+  projectName: 'my-project',
+  targetStructure: 'microservices'
+});
+
+await unifier.run({
+  dryRun: false,
+  skipBackup: false
+});
+```
+
+### Integration with Monorepo Tools
+
+#### Turborepo
+
+After unification, add `turbo.json`:
+
+```json
+{
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "test": {
+      "dependsOn": ["build"]
+    }
+  }
+}
+```
+
+#### Nx
+
+```bash
+# Initialize Nx
+npx nx init
+
+# Add to existing monorepo
+npx nx@latest init --integrated
+```
+
+#### Lerna
+
+```bash
+# Initialize Lerna
+npx lerna init
+
+# Configure lerna.json
+{
+  "packages": ["services/*", "shared/*"],
+  "version": "independent"
+}
+```
+
+## 📊 Understanding Reports
+
+### analysis-report.json
+
+```json
+{
+  "files": [...],           // All scanned files
+  "duplicates": [...],      // Duplicate file groups
+  "dependencies": {...},    // Dependency versions by location
+  "issues": [...],          // Version conflicts, etc.
+  "recommendations": [...]  // Suggested actions
+}
+```
+
+### validation-report.json
+
+```json
+{
+  "summary": {
+    "passed": 15,
+    "failed": 0,
+    "warned": 2
+  },
+  "validations": [
+    {
+      "check": "npm install",
+      "status": "pass"
+    },
+    ...
+  ]
+}
+```
+
+## 🎓 Best Practices
+
+### Before Running
+
+1. ✅ Commit all work: `git commit -am "Pre-unification checkpoint"`
+2. ✅ Run analysis: `node unify-repo.js --analyze-only`
+3. ✅ Review ANALYSIS-SUMMARY.md
+4. ✅ Test with dry run: `node unify-repo.js --dry-run`
+5. ✅ Inform team about upcoming changes
+
+### After Running
+
+1. ✅ Review changes: `git status`, `git diff`
+2. ✅ Test locally: `npm install && npm test && npm run build`
+3. ✅ Update documentation: READMEs, architecture docs
+4. ✅ Update CI/CD: paths in workflows
+5. ✅ Create PR, get team review
+6. ✅ Merge, deploy to staging first
+
+### Maintenance
+
+- Run quarterly to catch new duplicates
+- Update `unify-config.json` as project evolves
+- Keep unification script updated
+- Document custom rules for team
+
+## 📞 Support
+
+### Getting Help
+
+1. Check this README
+2. Review `ANALYSIS-SUMMARY.md` for insights
+3. Inspect `analysis-report.json` for details
+4. Check GitHub Issues
+5. Contact DevOps team
+
+### Reporting Issues
+
+Include:
+- `analysis-report.json`
+- `validation-report.json`
+- Error messages
+- Repository structure (before/after)
+- Node.js version: `node --version`
+
+## 📝 License
+
+Same as parent repository.
+
+## 🙏 Credits
+
+Built with security best practices from:
+- OWASP Top 10
+- CIS Benchmarks
+- NIST Cybersecurity Framework
+- GitHub Community Standards
+
