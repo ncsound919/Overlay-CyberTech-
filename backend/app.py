@@ -150,7 +150,15 @@ class BackendApp:
             if limit_param is None:
                 return default, None
             try:
-                return int(limit_param), None
+                value = int(limit_param)
+                if value < 1:
+                    return None, (400, {
+                        "error": "Bad Request",
+                        "message": "Invalid 'limit' parameter; must be a positive integer."
+                    })
+                if value > 1000:
+                    value = 1000  # Cap at reasonable maximum
+                return value, None
             except ValueError:
                 return None, (400, {
                     "error": "Bad Request",
