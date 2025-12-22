@@ -15,18 +15,16 @@ using behavioral heuristics and signature-based detection.
 """
 
 import hashlib
-import json
 import os
 import subprocess
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, Deque, Dict, List, Optional, Set, Tuple
+from typing import Any, Deque, Dict, List, Optional, Set
 
 from core.platform_support import (
-    get_platform, is_windows, is_admin, PlatformType,
+    get_platform, PlatformType,
     ProcessManager, ProcessInfo, NetworkMonitor, NetworkConnection
 )
 
@@ -338,8 +336,7 @@ class IntrusionDetector:
             threat_level = (
                 ThreatLevel.CRITICAL if suspicion_score >= 8.0 else
                 ThreatLevel.HIGH if suspicion_score >= 5.0 else
-                ThreatLevel.MEDIUM if suspicion_score >= 3.0 else
-                ThreatLevel.LOW
+                ThreatLevel.MEDIUM
             )
             
             event = IntrusionEvent(
@@ -421,7 +418,8 @@ class IntrusionDetector:
                 if 16 <= second_octet <= 31:
                     return True
             except (ValueError, IndexError):
-                pass
+                # Malformed 172.* IP; treat as external/non-internal.
+                return False
         
         return (
             ip.startswith('127.') or
@@ -508,6 +506,8 @@ class IntrusionDetector:
                             self._events.append(event)
                             break
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            # `schtasks` may be unavailable or inaccessible (e.g. missing command,
+            # permissions, or timeout); in that case we skip scheduled-task scanning.
             pass
         
         return threats

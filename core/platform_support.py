@@ -16,11 +16,9 @@ similar to Avast's approach with native Windows API integration.
 import os
 import platform
 import subprocess
-import tempfile
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 
 # =============================================================================
@@ -152,6 +150,8 @@ class ProcessManager:
                         except (ValueError, IndexError):
                             continue
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            # If WMIC is unavailable or times out, gracefully fall back to
+            # returning an empty process list for Windows.
             pass
         
         return processes
@@ -190,6 +190,8 @@ class ProcessManager:
                     if exe_link.exists():
                         exe_path = str(exe_link.resolve())
                 except (PermissionError, OSError):
+                    # Some /proc/<pid>/exe entries are not readable or resolvable;
+                    # ignore and leave exe_path as None.
                     pass
                 
                 # Read status for parent PID
@@ -205,6 +207,8 @@ class ProcessManager:
                                 uid = int(line.split(':')[1].split()[0])
                                 user = str(uid)
                     except (ValueError, IndexError, PermissionError):
+                        # Intentionally ignore parsing/permission errors; fall back to
+                        # partial process metadata with parent_pid/user left as None.
                         pass
                 
                 processes.append(ProcessInfo(
@@ -247,6 +251,7 @@ class ProcessManager:
                         except (ValueError, IndexError):
                             continue
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            # ps command not available or failed; return empty list gracefully.
             pass
         
         return processes
@@ -299,6 +304,9 @@ class ProcessManager:
                 self._frozen_pids.add(pid)
                 return True
         except (FileNotFoundError, subprocess.TimeoutExpired):
+            # If pssuspend is not available or times out, fall back to an in-memory
+            # "logical" freeze only; actual suspension may require additional tools
+            # or administrator privileges on the system.
             pass
         
         # Fallback: Mark as frozen (actual freezing requires admin privileges)
@@ -320,7 +328,7 @@ class ProcessManager:
         
         try:
             if self._platform == PlatformType.WINDOWS:
-                result = subprocess.run(
+                subprocess.run(
                     ['pssuspend', '-r', str(pid)],
                     capture_output=True,
                     timeout=10
@@ -445,6 +453,8 @@ def get_system_info() -> SystemInfo:
         disk_total_gb = usage.total / (1024 ** 3)
         disk_free_gb = usage.free / (1024 ** 3)
     except (OSError, AttributeError):
+        # If disk usage cannot be determined (e.g., due to platform or permission issues),
+        # fall back to the default 0.0 values set above.
         pass
     
     return SystemInfo(
@@ -532,11 +542,11 @@ class WindowsRegistry:
                                     "type": "autorun"
                                 })
                                 i += 1
-                            except WindowsError:
+                            except OSError:
                                 break
                     finally:
                         self._winreg.CloseKey(key)
-                except (WindowsError, PermissionError):
+                except (OSError, PermissionError):
                     continue
         
         return entries
@@ -569,11 +579,12 @@ class WindowsRegistry:
                         if service_info:
                             services.append(service_info)
                         i += 1
-                    except WindowsError:
+                    except OSError:
                         break
             finally:
                 self._winreg.CloseKey(key)
-        except (WindowsError, PermissionError):
+        except (OSError, PermissionError):
+            # Registry access failed; skip service scanning for this run.
             pass
         
         return services
@@ -602,7 +613,7 @@ class WindowsRegistry:
                 return info
             finally:
                 self._winreg.CloseKey(key)
-        except (WindowsError, PermissionError):
+        except (OSError, PermissionError):
             return None
     
     def _get_reg_value(self, key, value_name: str) -> Optional[Any]:
@@ -610,7 +621,7 @@ class WindowsRegistry:
         try:
             value, _ = self._winreg.QueryValueEx(key, value_name)
             return value
-        except WindowsError:
+        except OSError:
             return None
 
 
@@ -666,6 +677,7 @@ class ServiceManager:
                 if current_service:
                     services.append(current_service)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            # sc command not available or failed; return empty list gracefully.
             pass
         
         return services
@@ -692,6 +704,7 @@ class ServiceManager:
                             "sub": parts[3]
                         })
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            # systemctl command not available or failed; return empty list gracefully.
             pass
         
         return services
@@ -716,6 +729,7 @@ class ServiceManager:
                                     "state": parts[3]
                                 }
             except (subprocess.TimeoutExpired, FileNotFoundError):
+                # sc query failed or unavailable; return None.
                 pass
         elif self._platform == PlatformType.LINUX:
             try:
@@ -730,6 +744,7 @@ class ServiceManager:
                     "state": result.stdout.strip()
                 }
             except (subprocess.TimeoutExpired, FileNotFoundError):
+                # systemctl failed or unavailable; return None.
                 pass
         
         return None
@@ -843,12 +858,13 @@ class NetworkMonitor:
         Convert hex IP to dotted notation.
         
         Linux /proc/net/tcp stores IPs in little-endian hex format.
-        For example, 127.0.0.1 is stored as "0100007F".
-        We process bytes in reverse order: indices [6,4,2,0] -> 7F,00,00,01 -> 127.0.0.1
+        For example, 127.0.0.1 is stored as the little-endian hex string "0100007F".
+        We process byte *pairs* in reverse order: characters [6-7], [4-5], [2-3], [0-1]
+        -> "7F","00","00","01" -> 127.0.0.1.
         """
         try:
             if len(hex_ip) == 8:  # IPv4
-                # Little-endian: process bytes in reverse order
+                # Little-endian: process bytes in reverse order (positions 6-7, 4-5, 2-3, 0-1)
                 return '.'.join(str(int(hex_ip[i:i+2], 16)) for i in range(6, -1, -2))
             return hex_ip  # IPv6 - return as-is for now
         except ValueError:

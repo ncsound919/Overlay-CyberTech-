@@ -13,16 +13,13 @@ Implements secure deletion with multiple passes where needed
 and provides detailed reporting of cleaned items.
 """
 
-import hashlib
 import os
 import shutil
 import sqlite3
 import tempfile
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from .platform_support import get_platform, is_windows, PlatformType
 
@@ -354,16 +351,15 @@ class SystemCleaner:
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = cursor.fetchall()
             
-            # Clear history-related tables
-            history_tables = ['urls', 'visits', 'downloads', 'moz_places', 
-                            'moz_historyvisits', 'moz_downloads']
-            
+            # Clear history-related tables (matching common browser DB patterns)
             for table in tables:
                 table_name = table[0]
                 if any(h in table_name.lower() for h in ['url', 'visit', 'history', 'download']):
                     try:
                         cursor.execute(f"DELETE FROM {table_name}")
                     except sqlite3.OperationalError:
+                        # Some history-related entries may live in views or protected/system tables
+                        # that do not support DELETE; ignore these and continue with other tables.
                         pass
             
             conn.commit()
@@ -708,6 +704,7 @@ class SystemCleaner:
                     break
                     
         except (PermissionError, OSError):
+            # Best-effort analysis: ignore directories/files that cannot be accessed.
             pass
         
         # Sort by size
@@ -831,6 +828,8 @@ class RegistryCleaner:
             finally:
                 self._winreg.CloseKey(key)
         except (OSError, PermissionError):
+            # Registry access failed (e.g., insufficient permissions or missing hive);
+            # skip invalid file association scanning for this run.
             pass
     
     def _scan_orphaned_startup_entries(self) -> None:
@@ -918,6 +917,7 @@ class RegistryCleaner:
             finally:
                 self._winreg.CloseKey(key)
         except (OSError, PermissionError):
+            # Ignore registry access/permission issues; uninstall scanning is optional.
             pass
     
     def _extract_path_from_command(self, command: str) -> Optional[str]:

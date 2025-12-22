@@ -13,7 +13,6 @@ import os
 import pytest
 import tempfile
 import time
-from pathlib import Path
 
 # Import new modules
 from core.platform_support import (
@@ -516,6 +515,7 @@ class TestNewModulesIntegration:
         
         # Step 2: Prepare response system
         response = IntruderResponse(detector)
+        assert response is not None
         
         # Step 3: Prepare benchmark system
         benchmark = ActionBenchmark(detector)
@@ -530,6 +530,7 @@ class TestNewModulesIntegration:
         """Test cleaner with platform support."""
         platform = get_platform()
         info = get_system_info()
+        assert isinstance(info, SystemInfo)
         
         # Create cleaner
         config = CleanupConfig(dry_run=True)
