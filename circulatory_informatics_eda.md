@@ -1,6 +1,6 @@
 # Circulatory Informatics: Event-Driven Architecture Outline
 
-Upgraded, implementation-ready coding outline for the nine “organ” systems, oriented around an event-driven, API-first microservices architecture with a secure data fabric.
+Upgraded, implementation-ready coding outline for the nine “organ” systems, oriented around an event-driven, API-first microservices architecture with a secure data fabric. Event types and command payloads use PascalCase (e.g., `ResponseCommand`, `IsolateHost`, `RevokeToken`, `PolicyViolation`, `IncidentOpened`) for consistency across producers and consumers.
 
 ### System interaction overview
 
@@ -8,7 +8,7 @@ Although each “organ” system is described separately, they operate as a sing
 
 Typical cross-system event flows include:
 - **Data ingestion → analytics → response:** Digestive (ingest raw telemetry/logs) → Circulatory (normalize and fan-out events) → Nervous (correlation, scoring) → Immune (enrich with threat intel, select playbook) → Skeletal (policy checks/guardrails) → Muscular (execute approved actions) → Lymphatic (forensics & recovery).
-- **Policy-driven enforcement loop:** Skeletal emits `PolicyViolation` on drift/misconfig → Circulatory routes to Nervous and Lymphatic → Nervous assesses risk and may request `ResponseCommand` → Muscular enforces (e.g., `REVOKE_TOKEN`, `ISOLATE_HOST`) → Respiratory updates network/access controls as needed.
+- **Policy-driven enforcement loop:** Skeletal emits `PolicyViolation` on drift/misconfig → Circulatory routes to Nervous and Lymphatic → Nervous assesses risk and may request `ResponseCommand` → Muscular enforces (e.g., `RevokeToken`, `IsolateHost`) → Respiratory updates network/access controls as needed.
 - **Threat intel–driven hardening:** Immune ingests new `ThreatIndicator` → Circulatory distributes to Nervous and Respiratory → Nervous updates detection models/rules; Respiratory updates filtering rules → future matching events trigger faster Muscular/Lymphatic action.
 - **Incident lifecycle:** Nervous opens `IncidentOpened` on high risk → Lymphatic triggers evidence collection and containment (coordinating with Muscular and Respiratory) → Immune records outcome as “learned immunity” and may adjust playbooks → Skeletal/Governance updates policies based on post-incident review.
 
@@ -22,7 +22,7 @@ These flows are illustrative; in practice, business-specific playbooks are compo
 ## 2. Nervous System: Analytics & Decision Engine
 - **Pattern:** CEP engine + AI inference services.
 - **Correlation & detection:** Deterministic rules (Flink/Esper) + ML anomaly detection over behavioral baselines.
-- **Decision orchestration:** Risk scoring, policy-aware decisions (consult Skeletal) emitting `ResponseCommand` events (`ISOLATE_HOST`, `REVOKE_TOKEN`).
+- **Decision orchestration:** Risk scoring, policy-aware decisions (consult Skeletal) emitting `ResponseCommand` events (`IsolateHost`, `RevokeToken`).
 - **Medulla dashboard backend:** Aggregates vitals, exposes query/report/playbook APIs.
 
 ## 3. Immune System: Threat Intelligence & Response Logic
