@@ -85,4 +85,4 @@ Upgraded, implementation-ready coding outline for the nine “organ” systems, 
 [26] OPA use cases (Jit): https://www.jit.io/resources/security-standards/5-use-cases-for-using-open-policy-agent  
 [27] Benefits of event-driven architecture in traditional apps (Reddit/Node): https://www.reddit.com/r/node/comments/1miwb1p/benefits-of-event-driven-architecture-in-a-traditional-server-side-app-that-is-not-a-microservice/  
 [28] EDA vs request/response discussion (Reddit/microservices): https://www.reddit.com/r/microservices/comments/1c880z4/eventdriven_architectures_vs_request_response/  
-[29] Event-driven microservices best practices discussion (Reddit/Golang): https://www.reddit.com/r/golang/comments/ve6zok/what_would_be-eventdriven-microservices-best/
+[29] Event-driven microservices best practices discussion (Reddit/Golang): https://www.reddit.com/r/golang/comments/ve6zok/what_would_be_eventdriven-microservices_best/
