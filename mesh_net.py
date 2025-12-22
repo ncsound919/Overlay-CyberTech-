@@ -251,6 +251,45 @@ def _load_mesh_net() -> Dict[str, Any]:
 def get_mesh_net() -> Dict[str, Any]:
     """
     Return a deep copy of the global cybersecurity mesh specification.
+
+    The returned object is a nested dictionary parsed from the JSON schema
+    stored in ``_MESH_NET_JSON`` in this module. At a high level, the
+    structure looks like:
+
+    .. code-block:: text
+
+        {
+            "global_cybersecurity_mesh": {
+                "network_metadata": { ... },
+                "nodes": [ ... ],
+                "trust_and_reputation": { ... },
+                "social_graph": { ... },
+                "threat_intelligence": { ... },
+                "governance": { ... },
+                "privacy_and_compliance": { ... },
+                "economics_and_incentives": { ... },
+                "integration_and_interoperability": { ... },
+                "observability_and_analytics": { ... },
+                "resilience_and_continuity": { ... },
+                "deployment_specifications": { ... }
+            }
+        }
+
+    Returns
+    -------
+    Dict[str, Any]
+        A deep copy of the mesh specification dictionary. Modifications to
+        the returned value will not affect the internal cached schema.
+
+    Examples
+    --------
+    Access top-level network metadata::
+
+        from mesh_net import get_mesh_net
+
+        mesh = get_mesh_net()
+        metadata = mesh["global_cybersecurity_mesh"]["network_metadata"]
+        print(metadata["network_name"])
     """
     return deepcopy(_load_mesh_net())
 
