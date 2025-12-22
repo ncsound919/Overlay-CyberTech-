@@ -41,6 +41,10 @@ htmlcov/
 # Database files (generated during testing)
 *.db
 
+# Reports
+security-report.json
+*-report.json
+
 # OS
 .DS_Store
 Thumbs.db
