@@ -55,7 +55,7 @@ class SecurityEventCreate:
     def __post_init__(self) -> None:
         """Validate fields after initialization."""
         # Validate required string fields are non-empty
-        for field_name in ("event_type", "detected_threat", "affected_asset"):
+        for field_name in ("event_type", "severity", "detected_threat", "affected_asset"):
             value = getattr(self, field_name)
             if not isinstance(value, str):
                 raise ValueError(f"{field_name} must be a string, got {type(value).__name__}")
