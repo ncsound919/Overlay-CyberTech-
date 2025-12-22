@@ -40,7 +40,7 @@ Upgraded, implementation-ready coding outline for the nine “organ” systems, 
 
 ## 7. Respiratory System: Network & Access Filter
 - **Pattern:** L7 gateway/proxy + NDR.
-- **Ingress/egress control:** Policy-driven allow/deny, TLS inspection where legal, API gateway for service calls.
+- **Ingress/egress control:** Policy-driven allow/deny, TLS inspection where legal and compliant with applicable regulations (e.g., GDPR, HIPAA) and internal policies, coordinated with legal/compliance teams, API gateway for service calls.
 - **Flow/behavior analytics:** NetFlow/IPFIX + mirrored traffic for exfil, beaconing, lateral movement.
 - **Dynamic guardrails:** Block/allow lists updated in real time from Immune and Nervous systems.
 
