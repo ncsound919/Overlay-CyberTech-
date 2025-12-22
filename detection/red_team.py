@@ -31,6 +31,7 @@ class RedTeamExercise:
     """Coordinates authenticated red team assessments with automated safety."""
 
     DEFAULT_PORTS = (22, 80, 443)
+    CONFIDENCE_DIVISOR = 10.0
 
     def __init__(
         self,
@@ -90,18 +91,14 @@ class RedTeamExercise:
         """
         auth = self.authenticate(credentials)
         if not auth["authenticated"]:
+            empty_safety = self._build_safety([], [], "NONE", 0.0)
             return {
                 "success": False,
                 "authentication": auth,
-                "intrusion_overview": None,
-                "vulnerabilities": None,
-            "automated_safety": {
-                "actions": [],
-                "violations": [],
-                "highest_severity": "NONE",
-                "risk_score": 0.0,
-            },
-        }
+                "intrusion_overview": {},
+                "vulnerabilities": {},
+                "automated_safety": empty_safety,
+            }
 
         port_set = open_ports or list(self.DEFAULT_PORTS)
         intrusion_result = self._intrusion_detector.scan_system()
@@ -119,7 +116,10 @@ class RedTeamExercise:
             "login_risk_score": risk_assessment.get("risk_score", 0),
             "new_location": False,
             "threat_type": "red_team",
-            "confidence": min(1.0, vuln_result["risk_score"] / 10),
+            "confidence": min(
+                1.0,
+                vuln_result["risk_score"] / self.CONFIDENCE_DIVISOR,
+            ),
             "data_transfer_mb": 0,
             "destination_external": False,
         }
@@ -135,12 +135,12 @@ class RedTeamExercise:
                 "risk": intrusion_result["risk_assessment"]["overall_risk"],
             },
             "vulnerabilities": vuln_result,
-            "automated_safety": {
-                "actions": safety_actions,
-                "violations": safety_violations,
-                "highest_severity": highest_severity,
-                "risk_score": vuln_result["risk_score"],
-            },
+            "automated_safety": self._build_safety(
+                safety_actions,
+                safety_violations,
+                highest_severity,
+                vuln_result["risk_score"],
+            ),
         }
 
     @staticmethod
@@ -154,3 +154,18 @@ class RedTeamExercise:
             if any(v.get("severity") == level for v in vulnerabilities):
                 return level
         return "UNKNOWN"
+
+    @staticmethod
+    def _build_safety(
+        actions: List[str],
+        violations: List[Dict[str, Any]],
+        highest_severity: str,
+        risk_score: float,
+    ) -> Dict[str, Any]:
+        """Create a consistent automated safety payload."""
+        return {
+            "actions": actions,
+            "violations": violations,
+            "highest_severity": highest_severity,
+            "risk_score": risk_score,
+        }
