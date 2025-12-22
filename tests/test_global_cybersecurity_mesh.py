@@ -1,0 +1,29 @@
+import pytest
+
+from core.global_cybersecurity_mesh import (
+    GLOBAL_CYBERSECURITY_MESH,
+    get_global_cybersecurity_mesh,
+    global_cybersecurity_mesh,
+)
+
+
+def test_global_mesh_top_level_keys():
+    mesh = get_global_cybersecurity_mesh()
+    assert mesh["network_metadata"]["network_name"] == "CyberSecMeshGlobal"
+    assert mesh["architecture"]["topology"] == "hybrid_p2p_with_supernodes"
+    assert "identity_fabric" in mesh["core_layers"]
+    assert "peer_discovery" in mesh["network_protocols"]
+    assert "token_economics" in mesh["incentive_mechanisms"]
+
+
+def test_wrapper_option_returns_full_structure():
+    wrapped = get_global_cybersecurity_mesh(include_wrapper=True)
+    assert "global_cybersecurity_mesh" in wrapped
+    assert wrapped["global_cybersecurity_mesh"]["reputation_system"]["factors"]["threat_accuracy"]["weight"] == pytest.approx(
+        0.35
+    )
+
+
+def test_constants_are_synced():
+    assert GLOBAL_CYBERSECURITY_MESH is global_cybersecurity_mesh
+    assert GLOBAL_CYBERSECURITY_MESH["deployment_specifications"]["node_requirements"]["minimum_hardware"]["cpu"] == "2_cores"
