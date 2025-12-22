@@ -258,15 +258,38 @@ class OverlayCyberTech:
         credentials: RedTeamCredential,
         open_ports: Optional[List[int]] = None,
         banners: Optional[Dict[int, str]] = None,
+        failed_logins: Optional[int] = None,
+        time_window_minutes: Optional[int] = None,
+        new_location: Optional[bool] = None,
+        data_transfer_mb: Optional[float] = None,
+        destination_external: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Execute an authenticated red team assessment with automated safety controls.
+
+        Args:
+            credentials: Authenticated red team credential bundle.
+            open_ports: List of open ports to consider for simulated attacks.
+            banners: Optional mapping of port numbers to service banners.
+            failed_logins: Number of failed login attempts in the observation window.
+            time_window_minutes: Time window (in minutes) over which activity is evaluated.
+            new_location: Whether activity is originating from a new/unknown location.
+            data_transfer_mb: Volume of data transferred in megabytes.
+            destination_external: Whether the primary destination is external.
+
+        Returns:
+            Dictionary of red team assessment results.
         """
         print("🛡️ Running authenticated red team assessment...")
         return self.red_team.run_assessment(
             credentials=credentials,
             open_ports=open_ports,
             banners=banners,
+            failed_logins=failed_logins,
+            time_window_minutes=time_window_minutes,
+            new_location=new_location,
+            data_transfer_mb=data_transfer_mb,
+            destination_external=destination_external,
         )
     
     def generate_security_report(self, output_file: Optional[str] = None) -> str:
