@@ -13,6 +13,7 @@ to provide comprehensive security coverage:
 """
 
 import json
+import tempfile
 from pathlib import Path
 
 # Import the unified platform
@@ -81,7 +82,8 @@ def main():
     
     # Step 5: Analyze disk usage
     print("Step 6: Analyzing disk usage...")
-    disk_usage = platform.analyze_disk_usage('/tmp')
+    temp_dir = Path(tempfile.gettempdir())
+    disk_usage = platform.analyze_disk_usage(str(temp_dir))
     print(f"  Total: {disk_usage['total_gb']:.2f} GB")
     print(f"  Used: {disk_usage['used_gb']:.2f} GB ({disk_usage['percent_used']:.1f}%)")
     print(f"  Free: {disk_usage['free_gb']:.2f} GB")

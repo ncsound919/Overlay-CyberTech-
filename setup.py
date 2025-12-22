@@ -41,10 +41,7 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        # Core dependencies - minimal footprint for deterministic security
-        "pytest>=7.0.0",
-        "pytest-cov>=4.0.0",
-        "mypy>=1.0.0",
+        # No core dependencies - platform uses Python stdlib only
     ],
     extras_require={
         'dev': [
@@ -54,6 +51,10 @@ setup(
             'black>=22.0.0',
             'flake8>=4.0.0',
             'isort>=5.10.0',
+        ],
+        'test': [
+            'pytest>=7.0.0',
+            'pytest-cov>=4.0.0',
         ],
     },
     entry_points={

@@ -68,7 +68,7 @@ class OverlayCyberTech:
             audit_log_count = self.audit_log.cursor.execute(
                 "SELECT COUNT(*) FROM audit_trail"
             ).fetchone()[0]
-        except:
+        except Exception:  # Catch database-specific errors
             audit_log_count = 0
             
         return {
@@ -217,16 +217,19 @@ class OverlayCyberTech:
             print(f"  ✓ Freed {result['total_bytes_freed_mb']:.2f} MB")
             return result
     
-    def analyze_disk_usage(self, path: str = '/') -> Dict[str, Any]:
+    def analyze_disk_usage(self, path: Optional[str] = None) -> Dict[str, Any]:
         """
         Analyze disk usage to identify cleanup opportunities.
         
         Args:
-            path: Path to analyze
+            path: Path to analyze (defaults to user home directory)
             
         Returns:
             Disk usage analysis
         """
+        if path is None:
+            path = str(Path.home())
+            
         print(f"💾 Analyzing disk usage for {path}...")
         
         if self.system_cleaner is None:
@@ -354,8 +357,8 @@ Examples:
                        help='Preview actions without making changes')
     parser.add_argument('--output', '-o', type=str,
                        help='Output file path (use with report)')
-    parser.add_argument('--path', type=str, default='/',
-                       help='Path to analyze (use with disk-usage)')
+    parser.add_argument('--path', type=str,
+                       help='Path to analyze (use with disk-usage, defaults to home directory)')
     parser.add_argument('--detailed', action='store_true',
                        help='Include detailed analysis')
     
