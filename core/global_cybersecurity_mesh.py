@@ -240,6 +240,8 @@ _GLOBAL_CYBERSECURITY_MESH_JSON = """{
 
 _GLOBAL_CYBERSECURITY_MESH = json.loads(_GLOBAL_CYBERSECURITY_MESH_JSON)
 _GLOBAL_CYBERSECURITY_MESH_INNER = _GLOBAL_CYBERSECURITY_MESH["global_cybersecurity_mesh"]
+# Hardware specifications are intentionally preserved as string values with units
+# to mirror the provided problem statement without altering its semantics.
 global_cybersecurity_mesh = deepcopy(_GLOBAL_CYBERSECURITY_MESH_INNER)
 GLOBAL_CYBERSECURITY_MESH = deepcopy(_GLOBAL_CYBERSECURITY_MESH_INNER)
 

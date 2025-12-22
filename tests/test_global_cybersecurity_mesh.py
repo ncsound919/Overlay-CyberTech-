@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from core.global_cybersecurity_mesh import (
@@ -25,6 +26,8 @@ def test_wrapper_option_returns_full_structure():
 
 
 def test_constants_are_synced():
-    assert GLOBAL_CYBERSECURITY_MESH == global_cybersecurity_mesh
+    assert json.dumps(GLOBAL_CYBERSECURITY_MESH, sort_keys=True) == json.dumps(
+        global_cybersecurity_mesh, sort_keys=True
+    )
     node_requirements = GLOBAL_CYBERSECURITY_MESH["deployment_specifications"]["node_requirements"]
     assert node_requirements["minimum_hardware"]["cpu"] == "2_cores"
