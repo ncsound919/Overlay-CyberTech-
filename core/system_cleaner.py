@@ -831,7 +831,9 @@ class RegistryCleaner:
             finally:
                 self._winreg.CloseKey(key)
         except (OSError, PermissionError):
-            pass
+            # Registry access failed (e.g., insufficient permissions or missing hive);
+            # skip invalid file association scanning for this run.
+            return
     
     def _scan_orphaned_startup_entries(self) -> None:
         """Scan for startup entries pointing to non-existent files."""
