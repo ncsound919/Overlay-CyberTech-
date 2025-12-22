@@ -391,6 +391,8 @@ class SBOMGenerator:
                                     is_direct=True
                                 ))
             except OSError:
+                # If Cargo.toml cannot be read (e.g., permissions or I/O error),
+                # we skip Rust dependency detection and continue with other manifests.
                 pass
         
         return dependencies
