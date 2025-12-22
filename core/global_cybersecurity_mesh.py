@@ -2,7 +2,8 @@
 Global Cybersecurity Mesh specification.
 
 This module exposes the full problem statement as a structured dictionary so it
-can be consumed programmatically.
+can be consumed programmatically. The specification is embedded inline to keep
+the package self contained without additional data files or runtime I/O.
 """
 
 from copy import deepcopy
@@ -233,13 +234,14 @@ _GLOBAL_CYBERSECURITY_MESH_JSON = """{
         "initial_policies": {"data_retention": "90_days_default", "encryption_level": "maximum", "validation_threshold": "3_peer_minimum"}
       }
     }
-  }
+}
 }"""
 
 
 _GLOBAL_CYBERSECURITY_MESH = json.loads(_GLOBAL_CYBERSECURITY_MESH_JSON)
-global_cybersecurity_mesh = _GLOBAL_CYBERSECURITY_MESH["global_cybersecurity_mesh"]
-GLOBAL_CYBERSECURITY_MESH = global_cybersecurity_mesh
+_GLOBAL_CYBERSECURITY_MESH_INNER = _GLOBAL_CYBERSECURITY_MESH["global_cybersecurity_mesh"]
+global_cybersecurity_mesh = deepcopy(_GLOBAL_CYBERSECURITY_MESH_INNER)
+GLOBAL_CYBERSECURITY_MESH = deepcopy(_GLOBAL_CYBERSECURITY_MESH_INNER)
 
 
 def get_global_cybersecurity_mesh(include_wrapper: bool = False):
@@ -254,5 +256,5 @@ def get_global_cybersecurity_mesh(include_wrapper: bool = False):
     Returns:
         A deep copy of the requested specification dictionary.
     """
-    data = _GLOBAL_CYBERSECURITY_MESH if include_wrapper else global_cybersecurity_mesh
+    data = _GLOBAL_CYBERSECURITY_MESH if include_wrapper else _GLOBAL_CYBERSECURITY_MESH_INNER
     return deepcopy(data)
