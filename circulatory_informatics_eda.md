@@ -57,32 +57,32 @@ Upgraded, implementation-ready coding outline for the nine “organ” systems, 
 - **Autonomic feedback loops:** Use MTTR/false-positive rates/incident patterns to retune rules, thresholds, playbooks over time.
 
 ## References
-[1] https://www.trendmicro.com/en_us/research/22/h/event-driven-architecture-security.html  
-[2] https://www.confluent.io/learn/event-driven-architecture/  
-[3] https://cloudwars.com/cybersecurity/how-to-enhance-cybersecurity-for-event-driven-software-architecture/  
-[4] https://fidelissecurity.com/threatgeek/network-security/network-behavior-anomaly-detection-at-scale/  
-[5] https://corelight.com/resources/glossary/anomaly-based-detection  
-[6] https://www.cyware.com/blog/what-is-the-role-of-stix-taxii-in-threat-intelligence-sharing  
-[7] https://www.cncf.io/blog/2020/08/13/introducing-policy-as-code-the-open-policy-agent-opa/  
-[8] https://blog.gitguardian.com/what-is-policy-as-code-an-introduction-to-open-policy-agent/  
-[9] https://cloudsecurityalliance.org/blog/2020/04/02/using-open-policy-agent-opa-to-apply-policy-as-code-to-infrastructure-as-code/  
-[10] https://www.apisec.ai/blog/api-security-orchestration-automate-incident-response-remediation  
-[11] https://tamnoon.io/academy/soar/  
-[12] https://www.aikido.dev/blog/top-security-automation-tools  
-[13] https://radiantsecurity.ai/learn/top-18-security-automation-tools/  
-[14] https://searchinform.com/articles/cybersecurity/measures/siem/analytics/siem-data-normalization/  
-[15] https://airbyte.com/data-engineering-resources/cybersecurity-data-integration-best-practices-threat-intelligence  
-[16] https://www.forbes.com/councils/forbestechcouncil/2024/03/26/how-feedback-loops-strengthen-your-cyber-defenses/  
-[17] https://resilienceforward.com/beyond-plans-and-protocols-why-systems-thinking-is-the-missing-link-in-organizational-resilience/  
-[18] https://www.sentinelone.com/cybersecurity-101/cybersecurity/vulnerability-remediation-tools/  
-[19] https://torq.io/blog/what-is-soc-automation/  
-[20] https://blog.paessler.com/mttd-and-mttr-key-metrics-for-effective-incident-response  
-[21] https://www.tatvasoft.com/outsourcing/2024/06/event-driven-microservices.html  
-[22] https://developers.redhat.com/topics/event-driven  
-[23] https://www.reddit.com/r/dotnet/comments/xexs3t/do_we_really_need_everything_now_to_be_microservices_event_based_architecture/  
-[24] https://www.harness.io/blog/harness-policy-as-code  
-[25] https://www.reddit.com/r/ExperiencedDevs/comments/pmfy33/can_anyone_share_any_experiences_in_implementing/  
-[26] https://www.jit.io/resources/security-standards/5-use-cases-for-using-open-policy-agent  
-[27] https://www.reddit.com/r/node/comments/1miwb1p/benefits_of_event-driven-architecture-in-a-traditional-server-side-app-that-is-not-a-microservice/  
-[28] https://www.reddit.com/r/microservices/comments/1c880z4/eventdriven_architectures_vs_request_response/  
-[29] https://www.reddit.com/r/golang/comments/ve6zok/what_would_be_eventdriven_microservices_best/
+[1] Event-driven architecture security implications (Trend Micro): https://www.trendmicro.com/en_us/research/22/h/event-driven-architecture-security.html  
+[2] EDA overview and concepts (Confluent): https://www.confluent.io/learn/event-driven-architecture/  
+[3] Securing event-driven software (CloudWars): https://cloudwars.com/cybersecurity/how-to-enhance-cybersecurity-for-event-driven-software-architecture/  
+[4] ML-based network anomaly detection (Fidelis): https://fidelissecurity.com/threatgeek/network-security/network-behavior-anomaly-detection-at-scale/  
+[5] Anomaly-based detection primer (Corelight): https://corelight.com/resources/glossary/anomaly-based-detection  
+[6] STIX/TAXII threat intel sharing (Cyware): https://www.cyware.com/blog/what-is-the-role-of-stix-taxii-in-threat-intelligence-sharing  
+[7] Policy-as-code with OPA introduction (CNCF): https://www.cncf.io/blog/2020/08/13/introducing-policy-as-code-the-open-policy-agent-opa/  
+[8] Policy-as-code overview (GitGuardian): https://blog.gitguardian.com/what-is-policy-as-code-an-introduction-to-open-policy-agent/  
+[9] Applying OPA to IaC (CSA): https://cloudsecurityalliance.org/blog/2020/04/02/using-open-policy-agent-opa-to-apply-policy-as-code-to-infrastructure-as-code/  
+[10] API security orchestration and response (apisec): https://www.apisec.ai/blog/api-security-orchestration-automate-incident-response-remediation  
+[11] SOAR fundamentals (Tamnoon): https://tamnoon.io/academy/soar/  
+[12] Security automation tools roundup (Aikido): https://www.aikido.dev/blog/top-security-automation-tools  
+[13] Security automation platforms list (Radiant Security): https://radiantsecurity.ai/learn/top-18-security-automation-tools/  
+[14] SIEM data normalization practices (SearchInform): https://searchinform.com/articles/cybersecurity/measures/siem/analytics/siem-data-normalization/  
+[15] Data integration best practices for threat intel (Airbyte): https://airbyte.com/data-engineering-resources/cybersecurity-data-integration-best-practices-threat-intelligence  
+[16] Feedback loops for cyber defense (Forbes): https://www.forbes.com/councils/forbestechcouncil/2024/03/26/how-feedback-loops-strengthen-your-cyber-defenses/  
+[17] Systems thinking for resilience (ResilienceForward): https://resilienceforward.com/beyond-plans-and-protocols-why-systems-thinking-is-the-missing-link-in-organizational-resilience/  
+[18] Vulnerability remediation tooling overview (SentinelOne): https://www.sentinelone.com/cybersecurity-101/cybersecurity/vulnerability-remediation-tools/  
+[19] SOC automation benefits and tools (Torq): https://torq.io/blog/what-is-soc-automation/  
+[20] Incident response metrics MTTD/MTTR (Paessler): https://blog.paessler.com/mttd-and-mttr-key-metrics-for-effective-incident-response  
+[21] Event-driven microservices overview (TatvaSoft): https://www.tatvasoft.com/outsourcing/2024/06/event-driven-microservices.html  
+[22] Event-driven microservices topic overview (Red Hat Developer): https://developers.redhat.com/topics/event-driven  
+[23] Discussion on EDA vs traditional approaches (Reddit/dotnet): https://www.reddit.com/r/dotnet/comments/xexs3t/do_we_really_need_everything_now_to_be_microservices_event_based_architecture/  
+[24] Harness policy-as-code with OPA (Harness): https://www.harness.io/blog/harness-policy-as-code  
+[25] Practitioner experiences with EDA microservices (Reddit/ExperiencedDevs): https://www.reddit.com/r/ExperiencedDevs/comments/pmfy33/can_anyone_share_any_experiences_in_implementing/  
+[26] OPA use cases (Jit): https://www.jit.io/resources/security-standards/5-use-cases-for-using-open-policy-agent  
+[27] Benefits of event-driven architecture in traditional apps (Reddit/Node): https://www.reddit.com/r/node/comments/1miwb1p/benefits-of-event-driven-architecture-in-a-traditional-server-side-app-that-is-not-a-microservice/  
+[28] EDA vs request/response discussion (Reddit/microservices): https://www.reddit.com/r/microservices/comments/1c880z4/eventdriven_architectures_vs_request_response/  
+[29] Event-driven microservices best practices discussion (Reddit/Golang): https://www.reddit.com/r/golang/comments/ve6zok/what_would_be-eventdriven-microservices-best/
