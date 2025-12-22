@@ -1,0 +1,542 @@
+```json
+{
+  "enterprise_cybersecurity_features_for_regulated_industries": {
+    "data_classification_and_handling": {
+      "automated_classification": {
+        "content_inspection": "Deep packet inspection, file content analysis, regex patterns for PII/PHI/PCI, ML-based classification (NLP models detect sensitive content)",
+        "metadata_tagging": "Automatic labeling: PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED, TOP_SECRET. Tags propagate through system lifecycle.",
+        "classification_levels": {
+          "biotech_specific": "Clinical Trial Data (CTD), Intellectual Property (IP), Patient Health Information (PHI), Research Data, FDA Submissions",
+          "government_specific": "CUI (Controlled Unclassified Information), FOUO (For Official Use Only), classified levels (CONFIDENTIAL, SECRET, TOP SECRET), compartmented info (SCI)",
+          "finance_specific": "PII (Personally Identifiable Information), PCI (Payment Card Industry), Material Non-Public Information (MNPI), Customer Data, Transaction Records"
+        },
+        "dynamic_reclassification": "Content changes trigger re-scan, user can manually reclassify with justification (logged), automated downgrade after retention period",
+        "visual_watermarking": "Embed classification level in documents (PDF watermarks, Excel headers, email subject prefixes), screen watermarks with user ID + timestamp"
+      },
+      "policy_enforcement": {
+        "dlp_data_loss_prevention": {
+          "endpoint_dlp": "Monitor clipboard, USB drives, printers, screen captures. Block unauthorized data exfiltration. Symantec DLP, Microsoft Purview, custom agents.",
+          "network_dlp": "Inspect email (SMTP/Exchange), web uploads (HTTPS inspection), file transfers (FTP/SFTP), cloud storage (API proxying). Block based on rules.",
+          "cloud_dlp": "AWS Macie for S3, Google Cloud DLP API, Azure Information Protection. Scan data at rest in cloud storage.",
+          "pattern_matching": "SSN: \\d{3}-\\d{2}-\\d{4}, Credit Card: Luhn algorithm validation, Gene Sequences: ATCG patterns with confidence scoring, Drug Formulas: chemical notation patterns",
+          "contextual_analysis": "Not just patterns - context matters. 'SSN: 123-45-6789 in HR folder' = block. 'Test data SSN: 123-45-6789 in dev environment' = allow with warning."
+        },
+        "access_control_models": {
+          "rbac_role_based": "Standard roles: Admin, Security_Officer, Scientist, Analyst, Auditor. Roles map to permissions. Users assigned multiple roles.",
+          "abac_attribute_based": "Policies based on attributes: user.clearance_level >= data.classification AND user.department == data.owner_department AND user.need_to_know == true",
+          "mac_mandatory_access_control": "Government standard: users have clearance levels, data has classification. System enforces 'no read up, no write down'. Bell-LaPadula model.",
+          "dac_discretionary_access_control": "Data owners control access. Creator sets permissions. Delegates to others. Used for non-sensitive collaborative data.",
+          "temporal_access": "Time-based restrictions: 'Finance team can access trading data only during market hours (9:30 AM - 4 PM EST)'. Auto-revoke after project completion."
+        },
+        "need_to_know_enforcement": {
+          "project_based_access": "Access tied to active projects. Project ends → access revoked automatically. Quarterly access reviews.",
+          "justification_required": "High-sensitivity access requires written justification, manager approval, security team notification, audit trail.",
+          "segregation_of_duties": "Financial: Initiator ≠ Approver. Clinical trials: Researcher ≠ Data Analyst. Government: Classification Authority ≠ Data Consumer.",
+          "chinese_wall_security": "Prevent conflicts of interest. If user accessed Company A's MNPI, block access to competitor Company B's data. Common in finance/consulting."
+        }
+      },
+      "encryption_strategies": {
+        "encryption_at_rest": {
+          "database_encryption": "PostgreSQL pgcrypto for column-level encryption, Transparent Data Encryption (TDE) for SQL Server/Oracle, MongoDB Client-Side Field Level Encryption",
+          "file_system_encryption": "LUKS for Linux, BitLocker for Windows, FileVault for macOS. Full disk encryption mandatory for endpoints.",
+          "application_level_encryption": "Encrypt sensitive fields before DB insert. Use AES-256-GCM. Key per tenant (multi-tenancy). Deterministic encryption for searchable fields (carefully!).",
+          "key_hierarchy": "Data Encryption Keys (DEKs) encrypt data. Key Encryption Keys (KEKs) encrypt DEKs. Master keys in HSM. Rotate KEKs annually, DEKs every 2 years.",
+          "crypto_shredding": "Right to be forgotten (GDPR): Instead of deleting data, destroy encryption key. Data becomes permanently unreadable. Faster than data deletion."
+        },
+        "encryption_in_transit": {
+          "tls_1_3_minimum": "Disable TLS 1.0, 1.1, 1.2. Only TLS 1.3. Strong cipher suites: TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256. ECDHE for perfect forward secrecy.",
+          "mtls_mutual_tls": "Both client and server authenticate with certificates. Required for service-to-service communication. Certificate rotation automated.",
+          "vpn_requirements": "WireGuard or IPSec for remote access. Split tunnel disabled for high-security. Kill switch prevents unencrypted traffic.",
+          "email_encryption": "S/MIME for government, PGP for external partners, TLS for transport. Encrypt attachments separately. Key escrow for litigation hold.",
+          "api_security": "API keys in Authorization header, not URL. Short-lived JWT tokens (15 min). Refresh tokens with rotation. HMAC signing for webhook payloads."
+        },
+        "encryption_in_use": {
+          "confidential_computing": "Intel SGX, AMD SEV, AWS Nitro Enclaves. Process data inside secure enclaves. Memory encrypted even from hypervisor.",
+          "homomorphic_encryption": "Compute on encrypted data without decrypting. Early stage, limited operations. Useful for: encrypted search, privacy-preserving ML, secure multi-party computation.",
+          "secure_multi_party_computation": "Multiple parties compute function on private inputs without revealing inputs. Example: Combined drug research without sharing formulas.",
+          "trusted_execution_environments": "ARM TrustZone, TPM (Trusted Platform Module). Secure boot, attestation, isolated execution for crypto operations."
+        },
+        "key_management": {
+          "hsm_hardware_security_modules": "Thales, Gemalto, AWS CloudHSM. FIPS 140-2 Level 3 minimum for government. Master keys never leave HSM.",
+          "key_management_service": "AWS KMS, Azure Key Vault, Google Cloud KMS. Integration with HSM. Audit logs for all key operations. Key usage policies.",
+          "key_rotation": "Automated rotation schedule: Data keys every 90 days, master keys annually. Zero-downtime rotation with versioned keys.",
+          "key_escrow": "Backup keys held by trusted third party or split among multiple key holders (Shamir's Secret Sharing). For litigation, data recovery emergencies.",
+          "key_ceremony": "Initial key generation is formal ceremony: witnessed, recorded, multi-party control, air-gapped systems. For root CAs and master keys."
+        }
+      }
+    },
+    "compliance_and_regulatory_frameworks": {
+      "healthcare_biotech": {
+        "hipaa_compliance": {
+          "administrative_safeguards": "Security officer designated, workforce training, access management, incident response plan, contingency plan, business associate agreements",
+          "physical_safeguards": "Facility access controls, workstation security, device and media controls, disposal procedures for PHI",
+          "technical_safeguards": "Unique user identification, emergency access procedures, automatic logoff, encryption, audit controls, integrity controls",
+          "phi_handling": "Minimum necessary rule: access only data needed for job function. De-identification for research (Safe Harbor or Expert Determination methods).",
+          "breach_notification": "Discover breach → assess harm → notify affected individuals (60 days), HHS (if >500), media (if >500). Track in breach log.",
+          "audit_controls": "Log all PHI access: who, what, when, where, why. Retain logs 6 years. Regular log reviews for suspicious access patterns."
+        },
+        "fda_21_cfr_part11": {
+          "electronic_signatures": "Legally binding e-signatures. Two-factor authentication required. Unique user ID, biometric or password + token.",
+          "audit_trails": "Secure, computer-generated, time-stamped audit trails. Record: date, time, user, action. Immutable, cannot be deleted/modified.",
+          "system_validation": "IQ (Installation Qualification), OQ (Operational Qualification), PQ (Performance Qualification). Documented evidence system meets requirements.",
+          "change_control": "Formal change management process. Document all system changes, assess impact, test, approve, implement, verify. Maintain change history.",
+          "data_integrity": "ALCOA principles: Attributable, Legible, Contemporaneous, Original, Accurate. Plus CCEA: Complete, Consistent, Enduring, Available."
+        },
+        "gdpr_for_clinical_trials": {
+          "consent_management": "Explicit, informed consent for data processing. Granular consent: research, marketing, data sharing. Withdrawable at any time.",
+          "data_subject_rights": "Right to access, rectification, erasure, restriction, portability, object. Respond within 30 days.",
+          "cross_border_transfers": "EU to US: Standard Contractual Clauses (SCCs), adequacy decisions. Encrypt during international transfers.",
+          "privacy_by_design": "Data protection from project inception. Pseudonymization, minimization, purpose limitation built into systems.",
+          "dpia_data_protection_impact_assessment": "Required for high-risk processing (genetic data, large-scale profiling). Document risks, mitigations, necessity."
+        },
+        "gcp_good_clinical_practice": {
+          "source_data_verification": "System must support SDV: compare data in EDC (Electronic Data Capture) to source documents. Track discrepancies.",
+          "protocol_deviations": "Log all deviations from clinical trial protocol. Categorize: major/minor. Require investigator review and signature.",
+          "blinding_controls": "Randomization codes secured. Blinded users cannot access unblinding data. Emergency unblinding logged and reported."
+        }
+      },
+      "government_defense": {
+        "fisma_compliance": {
+          "nist_800_53_controls": "800+ security controls across 20 families. Categorize system (Low, Moderate, High impact). Select and implement controls.",
+          "continuous_monitoring": "ConMon: Ongoing assessment of security controls. Automated scanning, manual reviews, configuration management. Report to FedRAMP.",
+          "authorization_to_operate": "ATO process: Categorize → Select → Implement → Assess → Authorize → Monitor. Re-authorize every 3 years or on major change.",
+          "poam_plan_of_action": "Document weaknesses, remediation plans, responsible parties, target dates. Track in POAM database. Monthly updates."
+        },
+        "fedramp_authorization": {
+          "cloud_service_levels": "Low (public info), Moderate (controlled unclassified), High (national security). Most agencies require Moderate minimum.",
+          "3pao_assessment": "Third Party Assessment Organization conducts independent security assessment. Provides Security Assessment Report (SAR).",
+          "continuous_monitoring": "Monthly deliverables: scan results, POAM updates, incident reports, change requests. Quarterly: vulnerability scans, plan of action updates.",
+          "authorization_boundary": "Clearly define: what's in scope (applications, data, infrastructure), what's inherited (AWS GovCloud controls), what's customer responsibility."
+        },
+        "itar_ear_compliance": {
+          "export_controls": "ITAR (International Traffic in Arms Regulations): defense articles, technical data. EAR (Export Administration Regulations): dual-use items.",
+          "access_restrictions": "US persons only for ITAR data. Foreign nationals require license. Track citizenship/work authorization in HR system. Integrate with access control.",
+          "data_transfer_controls": "No export of ITAR data without license. Block access from foreign IP addresses. Encrypt all transfers. Log every access attempt.",
+          "registration_requirements": "DDTC registration for ITAR, BIS registration for EAR. Annual renewals. Maintain registration in compliance database."
+        },
+        "cmmc_compliance": {
+          "maturity_levels": "Level 1: Basic cyber hygiene (17 practices). Level 2: Intermediate (110 practices). Level 3: Good cyber hygiene (130 practices).",
+          "cui_protection": "Controlled Unclassified Information: NIST SP 800-171 controls. 110 requirements across 14 families. Required for DOD contractors.",
+          "third_party_assessment": "C3PAO (Certified Third-Party Assessor Organization) conducts assessment. Certificate valid 3 years. Must pass to bid on DOD contracts.",
+          "enclave_segregation": "Separate CUI from other data. Dedicated networks, servers, access controls. No commingling with non-CUI systems."
+        }
+      },
+      "financial_services": {
+        "pci_dss_compliance": {
+          "cardholder_data_environment": "CDE scope: systems that store, process, transmit cardholder data. Minimize CDE scope. Segment network.",
+          "requirements_overview": "Build and maintain secure network, protect cardholder data, maintain vulnerability management, implement strong access control, monitor and test networks, maintain information security policy",
+          "tokenization": "Replace PAN (Primary Account Number) with token. Token has no mathematical relationship to PAN. Reduces PCI scope significantly.",
+          "p2pe_point_to_point_encryption": "Encrypt card data at point of interaction (card reader). Decrypt only in secure environment. Merchant never has cleartext PAN.",
+          "quarterly_scans": "ASV (Approved Scanning Vendor) scans external IPs quarterly. Internal vulnerability scans quarterly. Remediate high/critical within SLA.",
+          "penetration_testing": "Annual penetration test by QSA (Qualified Security Assessor). Test network and application layers. Retest after significant changes."
+        },
+        "sox_compliance": {
+          "itgc_it_general_controls": "Access controls, change management, backups, disaster recovery. Support financial reporting processes.",
+          "segregation_of_duties": "Separate: transaction initiation, authorization, recording, custody of assets. Prevent fraud. Automated controls where possible.",
+          "audit_trail_requirements": "Comprehensive logging of financial system access and changes. Tamper-proof logs. Retain 7 years.",
+          "control_testing": "Annual testing by external auditors. Document control design, test operating effectiveness. Remediate deficiencies."
+        },
+        "glba_gramm_leach_bliley": {
+          "financial_privacy_rule": "Notice to customers: what info collected, with whom shared, how protected. Opt-out for non-essential sharing.",
+          "safeguards_rule": "Written information security plan. Risk assessment, controls, monitoring, vendor management.",
+          "pretexting_protection": "Prevent unauthorized access to customer info through false pretenses. Employee training, verification procedures."
+        },
+        "aml_kyc_requirements": {
+          "customer_due_diligence": "Identity verification, beneficial ownership, risk assessment. Enhanced due diligence for high-risk customers.",
+          "transaction_monitoring": "Real-time monitoring for suspicious activity. Rules-based (threshold alerts) and ML-based (anomaly detection).",
+          "sar_suspicious_activity_reports": "File SAR with FinCEN within 30 days of detection. Do not notify customer. Track in case management system.",
+          "sanctions_screening": "Check customers, transactions against OFAC SDN list, UN sanctions, EU sanctions. Real-time screening. Block if match."
+        },
+        "sec_regulations": {
+          "reg_s_p": "Privacy of consumer financial information. Similar to GLBA. Annual privacy notices.",
+          "reg_sho": "Short selling regulations. Locate requirement, close-out requirement. Systems must enforce.",
+          "mifid_ii": "European: Transaction reporting, best execution, record keeping. If operating in EU markets.",
+          "market_abuse_regulation": "MAR: Detect and prevent insider trading, market manipulation. Surveillance systems required."
+        }
+      },
+      "cross_industry_standards": {
+        "iso_27001": {
+          "isms_information_security_management_system": "Systematic approach to managing sensitive information. Risk-based. Continuous improvement (PDCA cycle).",
+          "annex_a_controls": "114 controls across 14 domains. Select based on risk assessment. Not all required, but choices must be justified.",
+          "certification_process": "Stage 1: Documentation review. Stage 2: On-site audit. Surveillance audits annually. Recertification every 3 years.",
+          "statement_of_applicability": "Document which Annex A controls are implemented, why others excluded. Living document, updated with changes."
+        },
+        "iso_27017_27018": {
+          "iso_27017": "Cloud-specific controls. Extends ISO 27001 for cloud service providers and customers. Shared responsibility model.",
+          "iso_27018": "PII protection in public clouds. Transparency, communication, accountability. Consent management, data return/deletion."
+        },
+        "nist_cybersecurity_framework": {
+          "five_functions": "Identify, Protect, Detect, Respond, Recover. Lifecycle approach to managing cybersecurity risk.",
+          "implementation_tiers": "Tier 1: Partial, Tier 2: Risk Informed, Tier 3: Repeatable, Tier 4: Adaptive. Self-assessment.",
+          "profiles": "Current profile: existing cybersecurity posture. Target profile: desired state. Gap analysis drives improvement plan."
+        },
+        "cis_controls": {
+          "critical_security_controls": "20 prioritized controls. Implementation groups: IG1 (basic), IG2 (intermediate), IG3 (advanced).",
+          "automated_implementation": "Use CIS-CAT (Configuration Assessment Tool) for compliance scanning. Ansible/Chef/Puppet for configuration enforcement.",
+          "community_defense_model": "Crowdsourced threat intelligence. Share anonymized attack data. Collective defense."
+        }
+      }
+    },
+    "advanced_security_controls": {
+      "identity_and_access_management": {
+        "enterprise_sso": {
+          "saml_2_0": "XML-based federation. IdP (Identity Provider) and SP (Service Provider). Used by most enterprise SaaS. Okta, Azure AD, Ping Identity.",
+          "oauth_2_0_oidc": "OAuth for authorization, OpenID Connect for authentication. JWT tokens. Modern standard for APIs and mobile apps.",
+          "multi_factor_authentication": {
+            "mfa_methods": "TOTP (Time-based One-Time Password): Google Authenticator, Authy. WebAuthn/FIDO2: YubiKey, Windows Hello, Touch ID. SMS (least secure, avoid).",
+            "risk_based_mfa": "Adaptive authentication: low risk (known device, location) → no MFA. High risk (new device, impossible travel) → step-up authentication.",
+            "push_notifications": "Duo, Okta Verify. Push to mobile app, user approves. Better UX than TOTP. Number matching to prevent MFA fatigue attacks.",
+            "biometric_authentication": "Fingerprint, face recognition, iris scan. For high-security: combine with PIN/password (something you know + something you are)."
+          },
+          "privileged_access_management": {
+            "pam_solutions": "CyberArk, BeyondTrust, Thycotic. Vault for privileged credentials. Check-out/check-in. Session recording. Just-in-time access.",
+            "zero_standing_privileges": "No permanent admin rights. Request elevated access when needed. Approval workflow. Time-limited. Auto-revoke after session.",
+            "session_monitoring": "Record all privileged sessions. Video playback. Real-time alerting on suspicious commands (rm -rf, DROP TABLE). Keystroke logging.",
+            "credential_rotation": "Automatic password rotation for service accounts. Daily or after each use. No shared passwords. Unique per service."
+          }
+        },
+        "identity_governance": {
+          "user_lifecycle_management": "Joiner/Mover/Leaver process. Automate account creation (HR system integration), role assignment (based on job title), termination (instant revocation).",
+          "access_certification": "Quarterly review: managers certify team's access is appropriate. Revoke unused access. Track certification completion. Escalate non-compliance.",
+          "role_mining": "Analyze actual access patterns. Discover common role combinations. Define standard roles. Reduce one-off permissions.",
+          "access_request_workflow": "Self-service portal for access requests. Manager approval, security review (for sensitive), auto-provisioning, notification."
+        },
+        "directory_services": {
+          "active_directory_security": "Admin tiers: Tier 0 (domain controllers), Tier 1 (servers), Tier 2 (workstations). No credential reuse across tiers. PAWs (Privileged Access Workstations) for Tier 0 admins.",
+          "ldap_hardening": "Disable anonymous binds, require signing and encryption (LDAPS), strong password policies, account lockout policies.",
+          "azure_ad_identity_protection": "Risk-based conditional access. User risk (leaked credentials), sign-in risk (anonymous IP, atypical travel). Auto-remediate or require MFA.",
+          "group_policy_management": "Centralized configuration. Security baselines (CIS benchmarks). Regular audits. Test in dev before production. GPO versioning."
+        }
+      },
+      "network_security": {
+        "network_segmentation": {
+          "zero_trust_networking": "Never trust, always verify. No implicit trust based on network location. Micro-segmentation. Software-defined perimeter.",
+          "vlan_segregation": "Separate VLANs: Management, Production, Development, DMZ, Guest. Inter-VLAN routing controlled by firewall. No direct routing.",
+          "software_defined_networking": "Overlay networks (VXLAN), intent-based networking. Programmable via API. Dynamic policy enforcement.",
+          "air_gapped_networks": "Physically isolated networks for highest security. No connection to internet or other networks. Data transfer via approved one-way diodes or manual process."
+        },
+        "firewall_architectures": {
+          "next_gen_firewalls": "Palo Alto, Fortinet, Cisco Firepower. Application awareness, intrusion prevention, SSL inspection, threat intelligence integration.",
+          "web_application_firewalls": "ModSecurity, Imperva, AWS WAF. OWASP Top 10 protection. Rate limiting, bot detection, API protection. Positive and negative security models.",
+          "cloud_native_firewalls": "AWS Security Groups, Azure NSG, GCP Firewall Rules. Stateful packet inspection. Tag-based rules. Integrated with cloud IAM.",
+          "east_west_traffic_control": "Traditional firewalls focus on north-south (internet). Zero trust requires east-west (server-to-server) controls. Service mesh (Istio), microsegmentation (VMware NSX)."
+        },
+        "intrusion_detection_prevention": {
+          "nids_network_ids": "Snort, Suricata, Zeek (Bro). Signature-based and anomaly-based detection. Monitor all network traffic. Alerts on suspicious patterns.",
+          "hids_host_ids": "OSSEC, Wazuh. Monitor file integrity, log analysis, rootkit detection. Agents on every server.",
+          "behavioral_analysis": "Establish baselines: normal traffic volume, typical connections, standard protocols. Alert on deviations. ML models for anomaly detection.",
+          "threat_hunting": "Proactive search for threats. Hypothesis-driven. Use SIEM data, netflow, endpoint logs. IOC (Indicators of Compromise) searches. Threat intelligence integration."
+        }
+      },
+      "endpoint_security": {
+        "edr_endpoint_detection_response": {
+          "edr_platforms": "CrowdStrike Falcon, SentinelOne, Microsoft Defender for Endpoint, Carbon Black. Behavioral detection, threat hunting, incident response.",
+          "telemetry_collection": "Process creation, network connections, file modifications, registry changes, memory operations. Continuous monitoring.",
+          "threat_detection": "Signature-based (known malware), behavioral (ransomware patterns), ML-based (anomalous behavior), threat intelligence (IOCs).",
+          "automated_response": "Isolate infected endpoints, kill malicious processes, quarantine files, rollback changes. Playbooks for common scenarios.",
+          "forensic_capabilities": "Timeline reconstruction, memory dumps, disk imaging, artifact collection. Support incident investigation."
+        },
+        "application_whitelisting": {
+          "default_deny": "Only approved applications can execute. Block everything else. Reduces attack surface. Critical for high-security environments.",
+          "implementation": "Windows: AppLocker, Device Guard. Linux: SELinux, AppArmor. Maintain allowlist: path-based, hash-based, certificate-based.",
+          "challenges": "High maintenance, user friction, business impact. Need process for exception requests. Test thoroughly before deployment."
+        },
+        "device_control": {
+          "usb_restrictions": "Block unauthorized USB devices. Whitelist approved vendors/models. Encrypt USB drives. Log all USB connections.",
+          "mobile_device_management": "Intune, MobileIron, VMware Workspace ONE. Enforce security policies, remote wipe, containerization (work/personal separation).",
+          "byod_policies": "Bring Your Own Device: require MDM enrollment, separate work data, enforce encryption, conditional access (device compliance → access)."
+        }
+      },
+      "application_security": {
+        "secure_sdlc": {
+          "security_requirements": "Define security requirements alongside functional requirements. Abuse cases, misuse cases. Threat modeling during design.",
+          "security_training": "Developers trained in secure coding: OWASP Top 10, injection prevention, authentication/authorization, cryptography, input validation.",
+          "code_review": "Peer review with security focus. Checklists for common vulnerabilities. Security champions in each team.",
+          "security_testing": "SAST (Static Application Security Testing): SonarQube, Checkmarx, Veracode. DAST (Dynamic): OWASP ZAP, Burp Suite. IAST (Interactive): Contrast Security.",
+          "dependency_management": "SCA (Software Composition Analysis): Snyk, WhiteSource, Black Duck. Track all dependencies. Automated vulnerability scanning. Patch management."
+        },
+        "runtime_application_security": {
+          "rasp_runtime_app_self_protection": "Agent embedded in application. Monitors execution, detects attacks, blocks in real-time. Context-aware (knows application logic).",
+          "api_security": "API gateway: rate limiting, authentication, authorization, input validation, threat detection. Kong, Apigee, AWS API Gateway.",
+          "serverless_security": "Function-level permissions, secrets management, execution time limits, resource limits. Monitor invocations for anomalies.",
+          "container_security": "Image scanning (Trivy, Clair), runtime protection (Falco, Aqua), network policies (Calico), admission controllers (OPA Gatekeeper)."
+        }
+      },
+      "data_security_technologies": {
+        "data_masking": {
+          "static_data_masking": "Irreversibly mask sensitive data for non-production environments. Maintain referential integrity. Format-preserving (looks realistic).",
+          "dynamic_data_masking": "Mask data based on user permissions. Production database, different views for different roles. SQL Server, Oracle, Imperva.",
+          "anonymization": "K-anonymity: each record indistinguishable from k-1 others. L-diversity: diverse sensitive values. T-closeness: distribution preserved.",
+          "pseudonymization": "Replace identifiers with pseudonyms. Reversible with key. Maintains data utility for analysis."
+        },
+        "tokenization": {
+          "format_preserving_tokenization": "Token matches format of original (16 digits for credit card). Enables legacy system integration without modifications.",
+          "vaultless_tokenization": "Cryptographic tokenization. No central vault to breach. Stateless. Higher performance. Example: FF3-1 format-preserving encryption.",
+          "token_vault": "Central vault stores mapping: token ↔ sensitive data. High security, single point of failure. Requires HSM protection."
+        },
+        "rights_management": {
+          "irm_information_rights_management": "Persistent protection. Encryption travels with document. Control: view, edit, print, forward, expiration. Microsoft RMS, Adobe Rights Management.",
+          "drm_digital_rights_management": "Media protection: videos, documents, ebooks. Watermarking, access controls, usage tracking.",
+          "ediscovery_support": "Legal hold: preserve data even when deletion requested. Search across repositories. Export in standard formats. Chain of custody maintained."
+        }
+      }
+    },
+    "incident_response_and_forensics": {
+      "security_operations_center": {
+        "soc_structure": {
+          "tier_1_analysts": "Alert triage, initial investigation, playbook execution. 24/7 coverage. Escalate to Tier 2.",
+          "tier_2_analysts": "Deep dive investigations, correlation analysis, IOC development. Threat hunting. Advanced tools.",
+          "tier_3_experts": "Threat intelligence, malware analysis, custom tool development. Subject matter experts.",
+          "soc_manager": "Operations, metrics, process improvement, vendor management, reporting to CISO."
+        },
+        "siem_security_information_event_management": {
+          "siem_platforms": "Splunk, IBM QRadar, LogRhythm, Elastic SIEM, Microsoft Sentinel. Log aggregation, correlation, alerting, dashboards.",
+          "log_sources": "Firewalls, IDS/IPS, endpoints, servers, cloud services, applications, identity systems. 100+ log sources typical.",
+          "correlation_rules": "Detect attack patterns: failed login → successful login → unusual data transfer = potential breach. Use cases for each threat type.",
+          "threat_intelligence_integration": "Enrich alerts with TI: IP reputation, domain reputation, file hashes, TTPs. STIX/TAXII feeds.",
+          "use_case_development": "Brute force attacks, insider threats, malware infections, data exfiltration, privilege escalation, lateral movement. 50+ use cases minimum."
+        },
+        "soar_security_orchestration_automation": {
+          "soar_platforms": "Palo Alto Cortex XSOAR, Splunk SOAR (Phantom), IBM Resilient, Swimlane. Orchestrate tools, automate workflows.",
+          "playbooks": "Automated response workflows. Phishing email → extract URLs → detonate in sandbox → block malicious domains → quarantine email → notify user.",
+          "case_management": "Ticketing integration (JIRA, ServiceNow), SLA tracking, escalation workflows, collaboration tools.",
+          "metrics_and_reporting": "Mean Time to Detect (MTTD), Mean Time to Respond (MTTR), alert volume, false positive rate, incidents by severity. Executive dashboards."
+        }
+      },
+      "incident_response_procedures": {
+        "incident_classification": {
+          "severity_levels": "P0/Critical: Active breach, data exfiltration. P1/High: Malware infection, credential compromise. P2/Medium: Suspicious activity. P3/Low: Policy violation.",
+          "incident_types": "Malware, phishing, DDoS, insider threat, data breach, account compromise, physical security, supply chain attack.",
+          "declaration_criteria": "When to declare incident: confirmed malicious activity, potential data breach, system compromise, regulatory requirement."
+        },
+        "response_phases": {
+          "preparation": "Incident response plan, team roles, contact lists, tools, training, simulations (tabletop exercises).",
+          "identification": "Detection, analysis, scoping. Determine: what happened, how, when, affected systems, data at risk.",
+          "containment": "Short-term: isolate infected systems, block malicious IPs. Long-term: patch vulnerabilities, update rules, rebuild systems.",
+          "eradication": "Remove malware, delete backdoors, reset compromised credentials, close attack vectors.",
+          "recovery": "Restore systems from clean backups, monitor for re-infection, gradual return to production, enhanced monitoring.",
+          "lessons_learned": "Postmortem within 7 days. What went well, what didn't, action items. Update incident response plan."
+        },
+        "communication_protocols": {
+          "internal_notifications": "
+```json
+{
+  "incident_response_and_forensics_continued": {
+    "communication_protocols": {
+      "internal_notifications": {
+        "executive_notification": "CISO notified immediately for P0/P1 incidents. CEO/Board for data breaches, regulatory incidents. Use secure channel (Signal, encrypted email).",
+        "stakeholder_updates": "Regular updates during active incidents. Status: contained, investigating, resolved. Next update time communicated. Use dedicated Slack/Teams channel.",
+        "legal_counsel": "Involve legal early for: data breaches, regulatory requirements, potential lawsuits, law enforcement interaction. Attorney-client privilege protection.",
+        "pr_communications": "Public relations team for external communications. Coordinate messaging. Single spokesperson. No speculation."
+      },
+      "external_notifications": {
+        "regulatory_reporting": {
+          "breach_notification_laws": "GDPR: 72 hours to regulator, without undue delay to individuals. HIPAA: 60 days. State laws vary (CA: expeditiously).",
+          "sec_reporting": "Material cybersecurity incidents: 4 business days on Form 8-K. Annual disclosure of risk management on Form 10-K.",
+          "banking_regulators": "OCC, FDIC, Federal Reserve notifications. Computer Security Incident Notification requirements.",
+          "industry_specific": "FDA for medical devices, FAA for aviation systems, CISA for critical infrastructure, FBI for national security implications."
+        },
+        "customer_notification": "Template emails ready. Personalize based on impact. Clear, non-technical language. What happened, what data, what we're doing, what they should do. Offer credit monitoring if PII exposed.",
+        "law_enforcement": "FBI IC3, Secret Service for financial crimes, local police for physical security. Maintain evidence chain of custody. Coordinate timing with legal.",
+        "threat_intelligence_sharing": "ISACs (Information Sharing and Analysis Centers): FS-ISAC, H-ISAC, etc. Share IOCs, TTPs. Help community defend. Anonymize as needed."
+      }
+    },
+    "digital_forensics": {
+      "evidence_collection": {
+        "order_of_volatility": "Collect in order: CPU registers/cache → RAM → network state → disk → backups → physical media. Most volatile first.",
+        "forensic_imaging": "Bit-for-bit copy. Write blockers prevent modification. Hash verification (SHA-256). Tools: FTK Imager, dd, EnCase.",
+        "memory_acquisition": "Live memory dump before shutdown. Captures: running processes, network connections, encryption keys, malware in memory. Tools: Magnet RAM Capture, Volatility.",
+        "network_traffic_capture": "PCAP files from IDS/IPS, network taps, SPAN ports. Full packet capture vs metadata only. Storage intensive.",
+        "log_collection": "Centralize immediately. Attacker may delete logs. Forward to write-once storage. System logs, application logs, firewall logs, proxy logs.",
+        "cloud_evidence": "Snapshots of virtual machines, container images, S3 bucket contents, CloudTrail logs, VPC flow logs. Time-sensitive (rotating logs).",
+        "mobile_device_forensics": "Logical extraction (via OS), physical extraction (chip-off), file system extraction. Tools: Cellebrite, Oxygen Forensics."
+      },
+      "chain_of_custody": {
+        "documentation": "Who collected, when, where, how, hash values, storage location. Every transfer documented. Maintain logs.",
+        "secure_storage": "Evidence locker (physical), encrypted storage (digital). Access controlled. Audit trail of access.",
+        "legal_admissibility": "Follow forensic standards: NIST SP 800-86, ISO/IEC 27037. Document everything. Expert testimony may be required."
+      },
+      "analysis_techniques": {
+        "timeline_analysis": "Reconstruct sequence of events. File system timestamps (MAC times: Modified, Accessed, Created). Browser history, log correlation.",
+        "malware_analysis": "Static: strings, PE headers, entropy, signatures. Dynamic: sandbox execution (Cuckoo, Joe Sandbox), behavior monitoring, network activity.",
+        "memory_forensics": "Volatility framework. Identify: running processes, loaded DLLs, network connections, registry hives, injected code.",
+        "network_forensics": "Wireshark analysis, protocol reconstruction, data carving from packets, SSL/TLS decryption (if keys available).",
+        "data_recovery": "Deleted file recovery, file carving from unallocated space, RAID reconstruction, damaged media recovery.",
+        "anti_forensics_detection": "Timestomping, encryption, steganography, log wiping. Look for indicators: suspicious timestamps, encrypted containers, wiped logs."
+      },
+      "forensic_tools": {
+        "commercial_suites": "EnCase, FTK (Forensic Toolkit), X-Ways Forensics, Magnet AXIOM. Comprehensive, court-tested, expensive.",
+        "open_source_tools": "Autopsy, Sleuth Kit, Volatility, Wireshark, Plaso (log2timeline), SIFT Workstation.",
+        "specialized_tools": "Rekall (memory), Volatility (memory), Redline (IOC), YARA (pattern matching), bulk_extractor (feature extraction)."
+      }
+    },
+    "threat_intelligence": {
+      "intelligence_types": {
+        "strategic_intelligence": "Long-term trends, threat actor capabilities, geopolitical context. For executive decisions. Annual/quarterly reports.",
+        "operational_intelligence": "Campaigns, TTPs, attack methodologies. For SOC/IR teams. Plan defenses, threat hunting.",
+        "tactical_intelligence": "IOCs: IP addresses, domains, file hashes, email addresses. For immediate blocking. Machine-readable.",
+        "technical_intelligence": "Malware analysis, exploit details, vulnerability information. For security engineers, forensics teams."
+      },
+      "threat_intelligence_platforms": {
+        "tip_solutions": "Anomali, ThreatConnect, ThreatQuotient, MISP (open source). Aggregate, correlate, enrich threat data.",
+        "feeds_and_sources": {
+          "commercial_feeds": "Recorded Future, Mandiant, CrowdStrike, Palo Alto Unit 42. High-quality, curated, expensive.",
+          "open_source_feeds": "AlienVault OTX, Abuse.ch, CIRCL, URLhaus, PhishTank. Free, community-driven, variable quality.",
+          "government_feeds": "US-CERT, FBI InfraGard, CISA AIS (Automated Indicator Sharing), DHS ISAC.",
+          "industry_feeds": "FS-ISAC (financial), H-ISAC (healthcare), REN-ISAC (education), E-ISAC (energy)."
+        },
+        "threat_actor_tracking": "APT groups: attribution, motivations, TTPs, targeting. Diamond Model: adversary, capability, infrastructure, victim.",
+        "ioc_management": "Deduplication, aging (old IOCs expire), confidence scoring, false positive feedback loop.",
+        "threat_hunting_use": "Hypothesis-driven hunting. 'If APT29 is in our network, we'd see X behavior.' Query SIEM/EDR for indicators."
+      },
+      "intelligence_sharing": {
+        "stix_taxii": "STIX (Structured Threat Information Expression): standard format for threat intel. TAXII (Trusted Automated Exchange): transport protocol.",
+        "tlp_traffic_light_protocol": "TLP:RED (recipients only), TLP:AMBER (limited distribution), TLP:GREEN (community), TLP:WHITE (public).",
+        "community_participation": "Share anonymized IOCs, attack patterns. Receive intel from peers. Reciprocity model.",
+        "legal_considerations": "Antitrust concerns (sharing competitive info), liability (false positives), classification (government intel)."
+      }
+    }
+  },
+  "specialized_security_for_regulated_industries": {
+    "biotech_pharma_specific": {
+      "research_data_protection": {
+        "ip_protection": "Patents, trade secrets, formulations, manufacturing processes. Crown jewels. Highest classification. Need-to-know basis.",
+        "clinical_trial_data_integrity": "21 CFR Part 11 compliance. Audit trails, e-signatures, validation. ALCOA+ principles. Source data verification.",
+        "laboratory_information_systems": "LIMS security: access control per project, sample tracking, chain of custody, instrument integration security.",
+        "electronic_lab_notebooks": "ELN: versioning, digital signatures, time-stamping, tamper-evident. Replace paper notebooks. Searchable, backed up.",
+        "bioinformatics_security": "Genomic data: 23andMe-style breaches prevention. De-identification, consent management, re-identification risk assessment."
+      },
+      "supply_chain_security": {
+        "api_active_pharmaceutical_ingredient_tracking": "Source authenticity, chain of custody, temperature monitoring, counterfeit detection. Blockchain for traceability.",
+        "cold_chain_monitoring": "IoT sensors for temperature-sensitive drugs. Real-time alerts. Data integrity for regulatory compliance.",
+        "vendor_risk_management": "Third-party risk assessments. CROs (Contract Research Organizations), CMOs (Contract Manufacturing). On-site audits, questionnaires, continuous monitoring.",
+        "serialization_compliance": "Drug Supply Chain Security Act (DSCSA). Unique serial numbers, traceability, verification systems."
+      },
+      "regulatory_submissions": {
+        "ectd_electronic_common_technical_document": "Structured format for FDA, EMA submissions. Validation, virus scanning, digital signatures.",
+        "data_integrity_for_submissions": "Raw data retention, audit trails, metadata. Regulatory inspections focus on data integrity.",
+        "secure_collaboration": "With regulators, partners. Encrypted file transfer, access controls, audit trails. FDA ESG (Electronic Submissions Gateway)."
+      },
+      "biosafety_and_physical_security": {
+        "select_agent_regulations": "CDC/USDA. Inventory controls, access restrictions (background checks, citizenship), transfer protocols, incident reporting.",
+        "laboratory_access_control": "Biometric access, mantrap entry, escort requirements, two-person rule for high-risk areas.",
+        "dual_use_research": "Research that could be weaponized. Ethics review, publication restrictions, DURC (Dual Use Research of Concern) oversight."
+      }
+    },
+    "government_defense_specific": {
+      "classified_information_systems": {
+        "scif_sensitive_compartmented_information_facility": "Physical security: walls, RF shielding, access controls, sound masking. Regular inspections.",
+        "classification_levels": {
+          "confidential": "Damage to national security. 10 years default classification.",
+          "secret": "Serious damage. 20 years default.",
+          "top_secret": "Exceptionally grave damage. 25 years default.",
+          "sci_compartments": "Special access required. Codeword compartments. Polygraph for access."
+        },
+        "cross_domain_solutions": {
+          "one_way_transfers": "Data diode. High to low only. Hardware-enforced. No return path.",
+          "guards": "Content filtering, protocol inspection. Allow specific data types. Block everything else. Raytheon NiteLine, Owl Computing.",
+          "trusted_gateways": "VPN-like. More flexible. Dual-authentication. Use cases: collaboration with allies."
+        },
+        "spillage_procedures": "Classified data on unclassified system: immediate reporting, quarantine systems, forensic investigation, sanitization, reporting to Original Classification Authority."
+      },
+      "supply_chain_risk_management": {
+        "hardware_validation": "Trusted suppliers only. Hardware authentication, tamper-evident packaging, X-ray inspection for implants.",
+        "software_assurance": "Code provenance, build reproducibility, binary verification, no backdoors. Government source code review for critical systems.",
+        "firmware_security": "Signed firmware, verified boot chain, TPM (Trusted Platform Module), BIOS protection.",
+        "trusted_foundry": "DMEA accredited. For ASICs, FPGAs. US-owned, US-located. Category 1A (highest trust)."
+      },
+      "insider_threat_program": {
+        "behavioral_indicators": "Financial stress, disgruntlement, foreign contacts, security violations, unusual work hours, data hoarding.",
+        "monitoring": "UEBA (User and Entity Behavior Analytics), DLP, email monitoring (with legal approval), badge access analysis.",
+        "reporting_mechanisms": "Anonymous reporting, hotlines, security officers. Protection for whistleblowers.",
+        "continuous_evaluation": "Background checks every 5 years → continuous vetting. Automated record checks (criminal, credit, foreign travel)."
+      },
+      "operations_security": {
+        "opsec_process": "Identify critical information → analyze threats → analyze vulnerabilities → assess risk → apply countermeasures.",
+        "adversary_perspective": "What can enemy learn from public info, social media, job postings, conference presentations?",
+        "cover_stories": "For sensitive operations. Plausible alternative explanations. Compartmentalization.",
+        "emissions_security": "TEMPEST: prevent electromagnetic eavesdropping. Shielding, red/black separation, cryptographic equipment."
+      }
+    },
+    "financial_services_specific": {
+      "trading_systems_security": {
+        "low_latency_requirements": "Security can't add >1ms latency. Hardware security modules, optimized crypto, FPGA-based security.",
+        "market_abuse_prevention": "Spoofing, layering, front-running detection. Real-time surveillance. Automated alerts.",
+        "algo_trading_controls": "Kill switches, position limits, price collars, self-trade prevention, market access controls.",
+        "order_routing_integrity": "FIX protocol security, message authentication, no manipulation, audit trails."
+      },
+      "payment_systems": {
+        "swift_security": "Customer Security Programme (CSP). Multi-factor auth, detect anomalies, secure environment, know/limit access, protect records.",
+        "real_time_payments": "Faster Payments, Zelle, RTP. Fraud detection in <1 second. Risk scoring, device fingerprinting, behavioral biometrics.",
+        "cryptocurrency_custody": "Hot wallets (online) vs cold wallets (offline). Multi-sig, HSM storage, transaction signing ceremonies.",
+        "cross_border_controls": "Sanctions screening, currency controls, source of funds verification, correspondent banking due diligence."
+      },
+      "fraud_detection": {
+        "transaction_monitoring": "Rules-based: velocity checks, geography, amount thresholds. ML-based: anomaly detection, peer group analysis, network analysis.",
+        "device_intelligence": "Device fingerprinting, geolocation, IP reputation, bot detection. Behavioral biometrics: typing patterns, mouse movements.",
+        "real_time_decisioning": "<100ms latency. In-memory databases, pre-computed features, model serving infrastructure.",
+        "case_management": "Alerts to analysts, investigation tools, evidence gathering, disposition tracking, SAR filing integration."
+      },
+      "trading_surveillance": {
+        "market_manipulation_detection": "Wash trades, pump and dump, quote stuffing, spoofing. Pattern recognition, statistical analysis.",
+        "insider_trading_detection": "Watch lists, materiality assessment, trading ahead of announcements, family member accounts.",
+        "cross_market_surveillance": "Correlate equity, options, credit markets. Detect multi-market manipulation strategies.",
+        "voice_surveillance": "Record all trading floor calls. Speech-to-text, keyword detection, sentiment analysis, compliance review."
+      },
+      "treasury_and_liquidity": {
+        "cash_position_monitoring": "Real-time visibility, intraday liquidity, stress testing, collateral management.",
+        "payment_security": "Dual control for high-value, velocity limits, out-of-band verification, callback verification.",
+        "fed_wire_ach_security": "Segregated credentials, dedicated networks, transaction signing, reconciliation."
+      }
+    }
+  },
+  "advanced_technologies": {
+    "ai_ml_security": {
+      "model_security": {
+        "adversarial_attacks": "Evasion (manipulate input), poisoning (corrupt training data), model inversion (extract training data), membership inference.",
+        "defense_techniques": "Adversarial training, input validation, differential privacy, model obfuscation, ensemble methods.",
+        "model_governance": "Version control, lineage tracking, performance monitoring, bias detection, explainability requirements.",
+        "federated_learning": "Train on decentralized data. Privacy-preserving. For sensitive data (healthcare). Differential privacy + secure aggregation."
+      },
+      "ai_for_security": {
+        "anomaly_detection": "Unsupervised learning: Isolation Forest, One-Class SVM, Autoencoders. Detect unknown attacks.",
+        "threat_classification": "Supervised learning: Random Forest, XGBoost, Neural Networks. Classify malware, phishing emails, network attacks.",
+        "behavioral_analytics": "UEBA: detect insider threats, compromised accounts. Baseline normal, flag deviations.",
+        "automated_response": "Reinforcement learning for adaptive defense. Agent learns optimal responses to attacks.",
+        "false_positive_reduction": "ML models filter SIEM alerts. Reduce alert fatigue. Learn from analyst feedback."
+      },
+      "security_of_ai_systems": {
+        "training_data_security": "Protect training data, prevent poisoning, verify provenance, access controls.",
+        "model_theft_prevention": "Rate limiting, obfuscation, watermarking, output monitoring for extraction attempts.",
+        "inference_security": "Protect input data privacy, prevent model inversion, secure inference (confidential computing).",
+        "mlops_security": "Secure pipelines, artifact signing, model registry access control, deployment approvals."
+      }
+    },
+    "quantum_computing_preparedness": {
+      "post_quantum_cryptography": {
+        "nist_pqc_standards": "CRYSTALS-Kyber (key encapsulation), CRYSTALS-Dilithium (signatures), Falcon, SPHINCS+. Standards finalized 2024.",
+        "migration_strategy": "Inventory current crypto, prioritize long-lived data, hybrid approach (classical + PQC), test performance impact.",
+        "crypto_agility": "Design systems to easily swap algorithms. Modular crypto libraries. Configuration-driven algorithm selection.",
+        "harvest_now_decrypt_later": "Adversaries store encrypted data today, decrypt when quantum available. Protect long-term sensitive data now with PQC."
+      },
+      "quantum_key_distribution": {
+        "qkd_technology": "Use quantum mechanics for unhackable key distribution. Any eavesdropping detectable. Point-to-point, fiber or satellite.",
+        "limitations": "Distance limited (~100km fiber), expensive, complementary to PQC, niche use cases (government, critical infrastructure).",
+        "quantum_networks": "China's quantum satellite, European Quantum Communication Infrastructure (EuroQCI). Strategic initiatives."
+      }
+    },
+    "blockchain_for_security": {
+      "audit_trails": "Immutable, tamper-evident logs. For compliance, forensics. Smart contracts enforce policies.",
+      "supply_chain_tracking": "Provenance, authenticity, chain of custody. Pharmaceuticals, electronics, food safety.",
+      "decentralized_identity": "Self-sovereign identity. User controls credentials. Verifiable credentials. W3C standards.",
+      "smart_contract_security": "Formal verification, audit (Quantstamp, CertiK), bug bounties. Reentrancy, integer overflow prevention."
+    }
+  },
+  "business_continuity_and_resilience": {
+    "disaster_recovery": {
+      "rto_rpo_objectives": "RTO (Recovery Time Objective): How quickly to restore. RPO (Recovery Point Objective): How much data loss acceptable.",
+      "backup_strategies": {
+        "3_2_1_rule": "3 copies of data, 2 different media types, 1 offsite. For ransomware: add 1 offline (air-gapped).",
+        "continuous_data_protection": "Real-time replication, point-in-time recovery, near-zero RPO. For critical systems.",
+        "backup_testing": "Quarterly restore tests.
+
