@@ -76,7 +76,7 @@ class TestFormalVerification:
         """Test function registration with FormalVerifier."""
         verifier = FormalVerifier()
         
-        triple = verifier.register_verified_function(
+        verifier.register_verified_function(
             name="test_func",
             precondition=lambda x: x > 0,
             statement=lambda x: x * 2,
