@@ -19,7 +19,12 @@ from response.lts_engine import PolicyEngine, create_security_policies
 
 @dataclass
 class RedTeamCredential:
-    """Represents credentials for a red team engagement (expires_at uses a UNIX timestamp in seconds, UTC)."""
+    """
+    Represents credentials for a red team engagement.
+
+    Attributes:
+        expires_at: UNIX timestamp in seconds (UTC) that marks when the credential is no longer valid.
+    """
 
     team_id: str
     token: str
@@ -58,9 +63,7 @@ class RedTeamExercise:
     def authenticate(self, credentials: RedTeamCredential) -> Dict[str, Any]:
         """Validate red team credentials and scope."""
         now = time.time()
-        token_valid = bool(credentials.token) and (
-            credentials.token in self._allowed_tokens
-        )
+        token_valid = credentials.token in self._allowed_tokens
         is_expired = (
             credentials.expires_at is not None and credentials.expires_at <= now
         )
