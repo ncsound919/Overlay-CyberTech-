@@ -30,6 +30,9 @@ except ModuleNotFoundError:  # pragma: no cover - fallback if tomllib unavailabl
     except ModuleNotFoundError:  # pragma: no cover
         tomllib = None
 
+TOMLDecodeError = getattr(tomllib, "TOMLDecodeError", ValueError)
+REQUIREMENT_SEPARATORS = ("==", ">=", "<=", "~=", "!=", ">", "<", "=")
+
 
 # =============================================================================
 # Immutable Audit Logging with Cryptographic Hashing
@@ -328,8 +331,9 @@ class SBOMGenerator:
     
     def _detect_dependencies(self, project_path: str) -> List[Dependency]:
         """Detect dependencies from package files."""
+        DependencyKey = Tuple[str, str, str]
         dependencies: List[Dependency] = []
-        dependency_index: Dict[Tuple[str, str, str], Dependency] = {}
+        dependency_index: Dict[DependencyKey, Dependency] = {}
 
         def _add_dependency(name: str, version: str, ecosystem: str, is_direct: bool = True) -> None:
             """Add dependency if not already recorded, prefer marking as direct."""
@@ -357,8 +361,7 @@ class SBOMGenerator:
                 return None
 
             # Check multi-character operators first to avoid premature matches
-            separators = ["==", ">=", "<=", "~=", "!=", ">", "<", "="]
-            for sep in separators:
+            for sep in REQUIREMENT_SEPARATORS:
                 if sep in requirement:
                     try:
                         name_part, version_part = requirement.split(sep, 1)
@@ -398,8 +401,10 @@ class SBOMGenerator:
                     lock_data = json.load(f)
                 for name, meta in lock_data.get("dependencies", {}).items():
                     version = meta.get("version")
-                    if version:
-                        _add_dependency(name, str(version), "npm", not meta.get("dev", False))
+                    if isinstance(version, (int, float)):
+                        version = str(version)
+                    if isinstance(version, str) and version:
+                        _add_dependency(name, version, "npm", not meta.get("dev", False))
             except (json.JSONDecodeError, OSError):
                 pass
         
@@ -442,7 +447,7 @@ class SBOMGenerator:
                             if parsed:
                                 name, version = parsed
                                 _add_dependency(name, version, "pip", True)
-                except (OSError, getattr(tomllib, "TOMLDecodeError", ValueError)):
+                except (OSError, TOMLDecodeError):
                     pass
         
         # Check for Cargo.toml (Rust)
