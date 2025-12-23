@@ -21,6 +21,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+try:  # Python 3.11+
+    import tomllib  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - fallback if tomllib unavailable
+    tomllib = None
+
 
 # =============================================================================
 # Immutable Audit Logging with Cryptographic Hashing
@@ -320,6 +325,42 @@ class SBOMGenerator:
     def _detect_dependencies(self, project_path: str) -> List[Dependency]:
         """Detect dependencies from package files."""
         dependencies = []
+        seen = set()
+
+        def _add_dependency(name: str, version: str, ecosystem: str, is_direct: bool = True) -> None:
+            """Add dependency if not already recorded."""
+            key = (name, version, ecosystem, is_direct)
+            if key in seen:
+                return
+            seen.add(key)
+            dependencies.append(Dependency(
+                name=name,
+                version=version or "*",
+                ecosystem=ecosystem,
+                is_direct=is_direct
+            ))
+
+        def _parse_requirement(raw: str) -> Optional[Tuple[str, str]]:
+            """Parse a simple requirement string into name/version parts."""
+            if not raw:
+                return None
+            requirement = raw.split(";", 1)[0].strip()  # strip environment markers
+            if not requirement or requirement.startswith("#"):
+                return None
+
+            separators = ["==", ">=", "<=", "~=", "!=", ">", "<", "="]
+            for sep in separators:
+                if sep in requirement:
+                    name_part, version_part = requirement.split(sep, 1)
+                    name_part = name_part.split("[", 1)[0].strip()
+                    version_part = version_part.strip()
+                    if not name_part:
+                        return None
+                    return name_part, version_part or "*"
+
+            name_only = requirement.split("[", 1)[0].strip()
+            return (name_only, "*") if name_only else None
+
         path = Path(project_path)
         
         # Check for package.json (Node.js)
@@ -330,20 +371,23 @@ class SBOMGenerator:
                     data = json.load(f)
                 
                 for name, version in data.get("dependencies", {}).items():
-                    dependencies.append(Dependency(
-                        name=name,
-                        version=version.lstrip("^~"),
-                        ecosystem="npm",
-                        is_direct=True
-                    ))
+                    _add_dependency(name, version.lstrip("^~"), "npm", True)
                 
                 for name, version in data.get("devDependencies", {}).items():
-                    dependencies.append(Dependency(
-                        name=name,
-                        version=version.lstrip("^~"),
-                        ecosystem="npm",
-                        is_direct=True
-                    ))
+                    _add_dependency(name, version.lstrip("^~"), "npm", True)
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        # Check for package-lock.json (Node.js lockfile)
+        package_lock = path / "package-lock.json"
+        if package_lock.exists():
+            try:
+                with open(package_lock, 'r') as f:
+                    lock_data = json.load(f)
+                for name, meta in lock_data.get("dependencies", {}).items():
+                    version = meta.get("version")
+                    if version:
+                        _add_dependency(name, str(version), "npm", not meta.get("dev", False))
             except (json.JSONDecodeError, OSError):
                 pass
         
@@ -353,17 +397,35 @@ class SBOMGenerator:
             try:
                 with open(requirements_txt, 'r') as f:
                     for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#'):
-                            if '==' in line:
-                                name, version = line.split('==', 1)
-                                dependencies.append(Dependency(
-                                    name=name.strip(),
-                                    version=version.strip(),
-                                    ecosystem="pip",
-                                    is_direct=True
-                                ))
+                        parsed = _parse_requirement(line.strip())
+                        if parsed:
+                            name, version = parsed
+                            _add_dependency(name, version, "pip", True)
             except OSError:
+                pass
+
+        # Check for pyproject.toml (Python modern packaging)
+        pyproject_toml = path / "pyproject.toml"
+        if tomllib is not None and pyproject_toml.exists():
+            try:
+                with open(pyproject_toml, "rb") as f:
+                    pyproject_data = tomllib.load(f)
+                project_table = pyproject_data.get("project", {})
+                for dep in project_table.get("dependencies", []) or []:
+                    parsed = _parse_requirement(dep)
+                    if parsed:
+                        name, version = parsed
+                        _add_dependency(name, version, "pip", True)
+
+                optional_deps = project_table.get("optional-dependencies", {}) or {}
+                for dep_list in optional_deps.values():
+                    for dep in dep_list or []:
+                        parsed = _parse_requirement(dep)
+                        if parsed:
+                            name, version = parsed
+                            _add_dependency(name, version, "pip", True)
+            except (OSError, ValueError):
+                # ValueError covers TOML decode errors
                 pass
         
         # Check for Cargo.toml (Rust)
@@ -384,15 +446,46 @@ class SBOMGenerator:
                             if len(parts) >= 2:
                                 name = parts[0].strip()
                                 version = parts[1].strip().strip('"')
-                                dependencies.append(Dependency(
-                                    name=name,
-                                    version=version,
-                                    ecosystem="cargo",
-                                    is_direct=True
-                                ))
+                                _add_dependency(name, version, "cargo", True)
             except OSError:
                 # If Cargo.toml cannot be read (e.g., permissions or I/O error),
                 # we skip Rust dependency detection and continue with other manifests.
+                pass
+
+        # Check for go.mod (Go modules)
+        go_mod = path / "go.mod"
+        if go_mod.exists():
+            try:
+                in_require_block = False
+                with open(go_mod, "r") as f:
+                    for line in f:
+                        stripped = line.strip()
+                        if not stripped or stripped.startswith("//"):
+                            continue
+                        if stripped.startswith("require ("):
+                            in_require_block = True
+                            continue
+                        if in_require_block and stripped.startswith(")"):
+                            in_require_block = False
+                            continue
+
+                        is_require_context = in_require_block or stripped.startswith("require ")
+                        if not is_require_context:
+                            continue
+
+                        if stripped.startswith("require "):
+                            stripped = stripped[len("require "):].strip()
+
+                        if not in_require_block and " " not in stripped:
+                            continue
+
+                        if in_require_block or stripped:
+                            parts = stripped.split()
+                            if len(parts) >= 2:
+                                module_name = parts[0]
+                                module_version = parts[1]
+                                _add_dependency(module_name, module_version, "go", True)
+            except OSError:
                 pass
         
         return dependencies
