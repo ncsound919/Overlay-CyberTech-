@@ -14,7 +14,7 @@ This module provides a unified interface to:
 import argparse
 import sys
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 # Import all major components
@@ -25,11 +25,15 @@ from core.data_structures import ThreatSignatureDB, IPTrie, BloomFilter
 from detection.threat_detector import StatefulPacketInspector, VulnerabilityScanner, EWMADetector
 from detection.intrusion_detector import IntrusionDetector, IntruderResponse, ActionBenchmark
 
-from response.lts_engine import LabeledTransitionSystem, PolicyEngine
+from response.lts_engine import (
+    LabeledTransitionSystem,
+    create_security_policies,
+)
 
 from kernel.formal_verification import FormalVerifier, HoareTriple, StateSpace
 
 from deployment.security import ImmutableAuditLog, SBOMGenerator, IntegrityVerifier
+from detection.red_team import RedTeamExercise, RedTeamCredential
 
 
 class OverlayCyberTech:
@@ -48,10 +52,11 @@ class OverlayCyberTech:
         self.intrusion_detector = IntrusionDetector()
         self.intruder_response = IntruderResponse(self.intrusion_detector)
         self.action_benchmark = ActionBenchmark(self.intrusion_detector)
+        self.vulnerability_scanner = VulnerabilityScanner()
         
         # Initialize response engine
         self.lts_engine = LabeledTransitionSystem()
-        self.policy_engine = PolicyEngine()
+        self.policy_engine = create_security_policies()
         
         # Initialize deployment security
         self.audit_log = ImmutableAuditLog()
@@ -60,6 +65,13 @@ class OverlayCyberTech:
         
         # Initialize system cleaner
         self.system_cleaner = None  # Lazy initialization
+        
+        # Red team orchestrator (use a separate VulnerabilityScanner to avoid shared mutable state)
+        self.red_team = RedTeamExercise(
+            intrusion_detector=self.intrusion_detector,
+            vulnerability_scanner=VulnerabilityScanner(),
+            policy_engine=self.policy_engine,
+        )
         
     def get_system_status(self) -> Dict[str, Any]:
         """Get comprehensive system status."""
@@ -106,8 +118,6 @@ class OverlayCyberTech:
         
         # Analyze vulnerabilities
         print("  → Analyzing vulnerabilities...")
-        vuln_scanner = VulnerabilityScanner()
-        vulnerabilities = []
         
         # Get attack statistics
         print("  → Generating attack statistics...")
@@ -242,6 +252,45 @@ class OverlayCyberTech:
         print(f"  → Free: {usage['free_gb']:.2f} GB")
         
         return usage
+    
+    def run_red_team_assessment(
+        self,
+        credentials: RedTeamCredential,
+        open_ports: Optional[List[int]] = None,
+        banners: Optional[Dict[int, str]] = None,
+        failed_logins: Optional[int] = None,
+        time_window_minutes: Optional[int] = None,
+        new_location: Optional[bool] = None,
+        data_transfer_mb: Optional[float] = None,
+        destination_external: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute an authenticated red team assessment with automated safety controls.
+
+        Args:
+            credentials: Authenticated red team credential bundle.
+            open_ports: List of open ports to consider for simulated attacks.
+            banners: Optional mapping of port numbers to service banners.
+            failed_logins: Number of failed login attempts in the observation window.
+            time_window_minutes: Time window (in minutes) over which activity is evaluated.
+            new_location: Whether activity is originating from a new/unknown location.
+            data_transfer_mb: Volume of data transferred in megabytes.
+            destination_external: Whether the primary destination is external.
+
+        Returns:
+            Dictionary of red team assessment results.
+        """
+        print("🛡️ Running authenticated red team assessment...")
+        return self.red_team.run_assessment(
+            credentials=credentials,
+            open_ports=open_ports,
+            banners=banners,
+            failed_logins=failed_logins,
+            time_window_minutes=time_window_minutes,
+            new_location=new_location,
+            data_transfer_mb=data_transfer_mb,
+            destination_external=destination_external,
+        )
     
     def generate_security_report(self, output_file: Optional[str] = None) -> str:
         """
