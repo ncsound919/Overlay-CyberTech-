@@ -20,7 +20,7 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, NamedTuple
 
 try:  # Python 3.11+
     import tomllib  # type: ignore
@@ -32,6 +32,12 @@ except ModuleNotFoundError:  # pragma: no cover - fallback if tomllib unavailabl
 
 TOMLDecodeError = getattr(tomllib, "TOMLDecodeError", ValueError)
 REQUIREMENT_SEPARATORS = ("==", ">=", "<=", "~=", "!=", ">", "<", "=")
+
+
+class DependencyKey(NamedTuple):
+    name: str
+    version: str
+    ecosystem: str
 
 
 # =============================================================================
@@ -331,7 +337,6 @@ class SBOMGenerator:
     
     def _detect_dependencies(self, project_path: str) -> List[Dependency]:
         """Detect dependencies from package files."""
-        DependencyKey = Tuple[str, str, str]
         dependencies: List[Dependency] = []
         dependency_index: Dict[DependencyKey, Dependency] = {}
 
