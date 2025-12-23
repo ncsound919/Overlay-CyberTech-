@@ -16,6 +16,7 @@ import json
 import os
 import sqlite3
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,7 +25,10 @@ from typing import Any, Dict, List, Optional, Tuple
 try:  # Python 3.11+
     import tomllib  # type: ignore
 except ModuleNotFoundError:  # pragma: no cover - fallback if tomllib unavailable
-    tomllib = None
+    try:
+        import tomli as tomllib  # type: ignore
+    except ModuleNotFoundError:  # pragma: no cover
+        tomllib = None
 
 
 # =============================================================================
@@ -324,21 +328,25 @@ class SBOMGenerator:
     
     def _detect_dependencies(self, project_path: str) -> List[Dependency]:
         """Detect dependencies from package files."""
-        dependencies = []
-        seen = set()
+        dependencies: List[Dependency] = []
+        dependency_index: Dict[Tuple[str, str, str], Dependency] = {}
 
         def _add_dependency(name: str, version: str, ecosystem: str, is_direct: bool = True) -> None:
-            """Add dependency if not already recorded."""
-            key = (name, version, ecosystem, is_direct)
-            if key in seen:
+            """Add dependency if not already recorded, prefer marking as direct."""
+            key = (name, version or "*", ecosystem)
+            existing = dependency_index.get(key)
+            if existing:
+                if is_direct and not existing.is_direct:
+                    existing.is_direct = True
                 return
-            seen.add(key)
-            dependencies.append(Dependency(
+            dep = Dependency(
                 name=name,
                 version=version or "*",
                 ecosystem=ecosystem,
                 is_direct=is_direct
-            ))
+            )
+            dependency_index[key] = dep
+            dependencies.append(dep)
 
         def _parse_requirement(raw: str) -> Optional[Tuple[str, str]]:
             """Parse a simple requirement string into name/version parts."""
@@ -348,10 +356,14 @@ class SBOMGenerator:
             if not requirement or requirement.startswith("#"):
                 return None
 
+            # Check multi-character operators first to avoid premature matches
             separators = ["==", ">=", "<=", "~=", "!=", ">", "<", "="]
             for sep in separators:
                 if sep in requirement:
-                    name_part, version_part = requirement.split(sep, 1)
+                    try:
+                        name_part, version_part = requirement.split(sep, 1)
+                    except ValueError:
+                        continue
                     name_part = name_part.split("[", 1)[0].strip()
                     version_part = version_part.strip()
                     if not name_part:
@@ -406,27 +418,32 @@ class SBOMGenerator:
 
         # Check for pyproject.toml (Python modern packaging)
         pyproject_toml = path / "pyproject.toml"
-        if tomllib is not None and pyproject_toml.exists():
-            try:
-                with open(pyproject_toml, "rb") as f:
-                    pyproject_data = tomllib.load(f)
-                project_table = pyproject_data.get("project", {})
-                for dep in project_table.get("dependencies", []) or []:
-                    parsed = _parse_requirement(dep)
-                    if parsed:
-                        name, version = parsed
-                        _add_dependency(name, version, "pip", True)
-
-                optional_deps = project_table.get("optional-dependencies", {}) or {}
-                for dep_list in optional_deps.values():
-                    for dep in dep_list or []:
+        if pyproject_toml.exists():
+            if tomllib is None:
+                warnings.warn(
+                    "TOML parser unavailable; skipping pyproject.toml dependency detection",
+                    RuntimeWarning,
+                )
+            else:
+                try:
+                    with open(pyproject_toml, "rb") as f:
+                        pyproject_data = tomllib.load(f)
+                    project_table = pyproject_data.get("project", {})
+                    for dep in project_table.get("dependencies", []) or []:
                         parsed = _parse_requirement(dep)
                         if parsed:
                             name, version = parsed
                             _add_dependency(name, version, "pip", True)
-            except (OSError, ValueError):
-                # ValueError covers TOML decode errors
-                pass
+
+                    optional_deps = project_table.get("optional-dependencies", {}) or {}
+                    for dep_list in optional_deps.values():
+                        for dep in dep_list or []:
+                            parsed = _parse_requirement(dep)
+                            if parsed:
+                                name, version = parsed
+                                _add_dependency(name, version, "pip", True)
+                except (OSError, getattr(tomllib, "TOMLDecodeError", ValueError)):
+                    pass
         
         # Check for Cargo.toml (Rust)
         cargo_toml = path / "Cargo.toml"
@@ -469,22 +486,16 @@ class SBOMGenerator:
                             in_require_block = False
                             continue
 
-                        is_require_context = in_require_block or stripped.startswith("require ")
-                        if not is_require_context:
-                            continue
-
-                        if stripped.startswith("require "):
+                        if not in_require_block:
+                            if not stripped.startswith("require "):
+                                continue
                             stripped = stripped[len("require "):].strip()
 
-                        if not in_require_block and " " not in stripped:
-                            continue
-
-                        if in_require_block or stripped:
-                            parts = stripped.split()
-                            if len(parts) >= 2:
-                                module_name = parts[0]
-                                module_version = parts[1]
-                                _add_dependency(module_name, module_version, "go", True)
+                        parts = stripped.split()
+                        if len(parts) >= 2:
+                            module_name = parts[0]
+                            module_version = parts[1]
+                            _add_dependency(module_name, module_version, "go", True)
             except OSError:
                 pass
         
